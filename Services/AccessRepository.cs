@@ -573,7 +573,8 @@ public sealed class AccessRepository
         var sql = "SELECT o.[OrderID], o.[ClientID], o.[TicketNo], o.[CreatedAt], o.[OrderStatus], c.[FirstName], c.[LastName], o.[DiscountAmount] " +
                   "FROM [Orders] AS o INNER JOIN [Clients] AS c ON o.[ClientID]=c.[ClientID] " +
                   (clientId.HasValue ? "WHERE o.[ClientID]=? " : "") + "ORDER BY o.[CreatedAt] DESC";
-        var orders = Query(sql, r => new OrderSummary
+        using var connection = Open();
+        var orders = QueryWithConnection(connection, null, sql, r => new OrderSummary
         {
             OrderId = Number(r, 0), ClientId = Number(r, 1), TicketNo = Text(r, 2), CreatedAt = Date(r, 3),
             OrderStatus = Text(r, 4), ClientName = (Text(r, 5) + " " + Text(r, 6)).Trim(), DiscountAmount = Money(r, 7)
@@ -585,14 +586,14 @@ public sealed class AccessRepository
             ? " WHERE [OrderID] IN (SELECT [OrderID] FROM [Orders] WHERE [ClientID]=?)"
             : "";
         object?[] aggregateArgs = clientId.HasValue ? [clientId.Value] : [];
-        var itemTotals = Query("SELECT [OrderID], SUM([UnitPrice] + [ExpressFee]) FROM [OrderItems]" + orderScope + " GROUP BY [OrderID]",
+        var itemTotals = QueryWithConnection(connection, null, "SELECT [OrderID], SUM([UnitPrice] + [ExpressFee]) FROM [OrderItems]" + orderScope + " GROUP BY [OrderID]",
             r => (OrderId: Number(r, 0), Total: Money(r, 1)), aggregateArgs).ToDictionary(row => row.OrderId, row => row.Total);
-        var payments = Query("SELECT [OrderID], SUM([Amount]) FROM [Payments]" + orderScope + " GROUP BY [OrderID]",
+        var payments = QueryWithConnection(connection, null, "SELECT [OrderID], SUM([Amount]) FROM [Payments]" + orderScope + " GROUP BY [OrderID]",
             r => (OrderId: Number(r, 0), Amount: Money(r, 1)), aggregateArgs).ToDictionary(row => row.OrderId, row => row.Amount);
         var readyItems = new Dictionary<int, int>();
         if (includeReadyItems)
         {
-            readyItems = Query("SELECT [OrderID], COUNT(*) FROM [OrderItems]" +
+            readyItems = QueryWithConnection(connection, null, "SELECT [OrderID], COUNT(*) FROM [OrderItems]" +
                                (clientId.HasValue ? " WHERE [ItemStatus]='prêt' AND [OrderID] IN (SELECT [OrderID] FROM [Orders] WHERE [ClientID]=?)" : " WHERE [ItemStatus]='prêt'") +
                                " GROUP BY [OrderID]",
                 r => (OrderId: Number(r, 0), Count: Number(r, 1)), aggregateArgs).ToDictionary(row => row.OrderId, row => row.Count);
