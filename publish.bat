@@ -4,6 +4,10 @@ cd /d "%~dp0"
 set "ROOT=%~dp0"
 set "OUT=%ROOT%release"
 
+echo Cleaning previous publish output...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare-publish.ps1"
+if errorlevel 1 goto failed
+
 echo Publishing Fresh ^& Care backend...
 dotnet publish "%ROOT%Pressings.csproj" -c Release -r win-x64 --self-contained true -o "%OUT%\backend"
 if errorlevel 1 goto failed
