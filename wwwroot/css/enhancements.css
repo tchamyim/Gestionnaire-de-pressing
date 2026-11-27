@@ -368,26 +368,6 @@ body { background: var(--canvas); }
 .workflow-step small { margin-top: 4px; color: var(--muted); font-size: 8px; line-height: 1.35; }
 .workflow-arrow { color: #9aa9b4; font-size: 13px; }
 
-.landing-process {
-    margin: 21px 0 0;
-    padding: 16px 17px 13px;
-    border: 1px solid #e7edf1;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #f8fbfd, #fff 74%);
-    text-align: left;
-}
-
-.landing-process-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.landing-process-heading .eyebrow { color: #8798a5; font-size: 8px; }
-.landing-process-heading strong { color: var(--navy); font-family: Georgia, serif; font-size: 13px; }
-.landing-process-steps { display: flex; align-items: center; gap: 8px; margin-top: 13px; }
-.landing-process-steps span { display: flex; align-items: center; gap: 6px; color: #536979; font-size: 9px; font-weight: 700; white-space: nowrap; }
-.landing-process-steps b { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 7px; background: #fff4d9; color: #95732e; font-size: 8px; }
-.landing-process-steps span:nth-of-type(2) b { background: #eaf4fb; color: #286d93; }
-.landing-process-steps span:nth-of-type(3) b { background: #eaf6ef; color: #367653; }
-.landing-process-steps i { height: 1px; flex: 1; min-width: 8px; background: #dce5eb; }
-.landing-process > p { margin: 11px 0 0; color: #7b8b97; font-size: 9px; line-height: 1.45; }
-
 .voice-assistant {
     display: grid;
     grid-template-columns: 62px minmax(0, 1fr);
@@ -438,6 +418,50 @@ body { background: var(--canvas); }
 .voice-stop:hover { color: #9d4a48; }
 .voice-privacy { display: block; margin-top: 8px; color: #8997a1; font-size: 8px; line-height: 1.45; }
 
+.landing-naya {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 11px;
+    margin: 17px 0 20px;
+    padding: 12px;
+    border: 1px solid #e4eaf0;
+    border-radius: 12px;
+    background: linear-gradient(110deg, #f8fbfd, #fff 80%);
+    text-align: left;
+    box-shadow: 0 7px 20px rgba(16,52,75,.05);
+}
+
+.landing-naya-mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #ead9b3;
+    border-radius: 13px;
+    background: linear-gradient(145deg, #fff8e8, #fff);
+    color: #825f24;
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.landing-naya-mark i { position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-radius: 50%; background: #45a478; box-shadow: 0 0 0 2px #fff; }
+.landing-naya-content { min-width: 0; }
+.landing-naya-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.landing-naya-heading strong { display: block; margin-top: 2px; color: var(--navy); font-size: 10px; }
+.landing-naya-kicker { display: block; color: #8c7442; font-size: 7px; font-weight: 800; letter-spacing: .13em; }
+.landing-naya-state { color: #54806c; font-size: 8px; font-weight: 700; white-space: nowrap; }
+.landing-naya-caption { min-height: 28px; margin: 6px 0 8px; color: #718092; font-size: 9px; line-height: 1.45; }
+.landing-naya-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.landing-naya-controls .button { padding: 7px 9px; font-size: 8px; }
+.landing-naya-controls button:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; transform: none; }
+.landing-naya-progress { height: 3px; overflow: hidden; margin-top: 9px; border-radius: 99px; background: #e9eff3; }
+.landing-naya-progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d9ad4e, #397fa5); transition: width .25s ease; }
+.landing-naya.is-speaking .landing-naya-mark { box-shadow: 0 0 0 4px rgba(217,173,78,.14); }
+.landing-naya.is-speaking .landing-naya-mark i { animation: naya-pulse 1.1s ease-in-out infinite; }
+@keyframes naya-pulse { 50% { box-shadow: 0 0 0 5px rgba(69,164,120,.18); } }
+
 @media (max-width: 1050px) {
     .workflow-band { grid-template-columns: 1fr; gap: 14px; }
     .workflow-intro h2 { max-width: none; }
@@ -449,16 +473,15 @@ body { background: var(--canvas); }
     .workflow-step small { font-size: 9px; }
     .workflow-band { padding: 16px 14px; }
     .app-signature { margin-top: 20px; }
-    .landing-process { padding: 14px 12px; }
-    .landing-process-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
-    .landing-process-steps { align-items: flex-start; flex-direction: column; gap: 8px; }
-    .landing-process-steps i { display: none; }
     .voice-assistant { grid-template-columns: 1fr; gap: 11px; padding: 15px; }
     .voice-assistant-mark { width: 46px; height: 46px; border-radius: 14px; }
     .voice-assistant-mark > span { font-size: 22px; }
     .voice-forms { grid-template-columns: 1fr; gap: 8px; }
     .voice-assistant-heading h2 { font-size: 16px; }
     .voice-actions { gap: 8px; }
+    .landing-naya { grid-template-columns: 36px minmax(0, 1fr); gap: 8px; margin: 13px 0 16px; padding: 10px; }
+    .landing-naya-mark { width: 34px; height: 34px; border-radius: 11px; font-size: 19px; }
+    .landing-naya-caption { min-height: 38px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
