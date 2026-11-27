@@ -1,0 +1,111 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Tableau de bord";
+}
+<div class="page-heading"><div><span class="eyebrow">@DateTime.Now.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("fr-FR")).ToUpperInvariant() · YAOUNDÉ</span><h1>Vue d’ensemble</h1><p>Suivez l’activité de votre pressing en un coup d’œil.</p></div><div class="heading-actions"><a class="button button-outline" asp-action="ClosingReport">📊 Clôture caisse (Rapport Z)</a><a class="button button-primary" asp-controller="Orders" asp-action="Create">＋ Enregistrer un dépôt</a></div></div>
+
+<div class="stat-grid">
+    <article class="stat-card"><div class="stat-icon blue">♙</div><div><span>Clients actifs</span><strong>@Model.ClientCount</strong><small>fiches enregistrées</small></div></article>
+    <article class="stat-card"><div class="stat-icon gold">▤</div><div><span>Tickets en cours</span><strong>@Model.ActiveOrders</strong><small>commandes non retirées</small></div></article>
+    <article class="stat-card"><div class="stat-icon green">✓</div><div><span>Articles prêts</span><strong>@Model.ReadyItems</strong><small>à remettre aux clients</small></div></article>
+    <article class="stat-card stat-emphasis"><div class="stat-icon navy">◉</div><div><span>Impayés clients</span><strong>@Fcfa(Model.Outstanding)</strong><small>solde restant à recouvrer</small></div></article>
+</div>
+
+<div class="dashboard-grid">
+    <section class="panel panel-wide">
+        <div class="panel-heading"><div><span class="eyebrow">SUIVI DES DÉPÔTS</span><h2>Tickets récents</h2></div><a class="text-link" asp-controller="Orders" asp-action="Index">Voir tous les tickets →</a></div>
+        @if (Model.RecentOrders.Count == 0)
+        {
+            <div class="empty-state"><span>▤</span><strong>Aucun dépôt pour le moment</strong><p>Créez une fiche client puis enregistrez un premier dépôt.</p><a class="button button-primary button-small" asp-controller="Orders" asp-action="Create">Nouveau dépôt</a></div>
+        }
+        else
+        {
+            <div class="table-scroll"><table><thead><tr><th>Ticket</th><th>Client</th><th>Date</th><th>Total</th><th>Reste dû</th><th></th></tr></thead><tbody>
+                @foreach (var order in Model.RecentOrders)
+                {
+                    <tr><td><a class="ticket-link" asp-controller="Orders" asp-action="Details" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.ClientName</td><td>@order.CreatedAt.ToString("dd/MM/yy HH:mm")</td><td>@Fcfa(order.Total)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td><td><a class="icon-link" asp-controller="Orders" asp-action="Details" asp-route-id="@order.OrderId">→</a></td></tr>
+                }
+            </tbody></table></div>
+        }
+    </section>
+
+    <section class="panel cash-panel">
+        <div class="panel-heading"><div><span class="eyebrow">ENCAISSEMENTS</span><h2>Caisse</h2></div><span class="cash-icon">◉</span></div>
+        <div class="cash-balance"><span>Solde espèces en caisse</span><strong>@Fcfa(Model.TillBalance)</strong></div>
+        <div class="cash-subline"><span>Règlements reçus aujourd’hui (tous moyens)</span><strong>@Fcfa(Model.TodayPayments)</strong></div>
+        <form asp-action="Movement" method="post" class="cash-form">
+            <label for="Direction">Mouvement de caisse</label><div class="form-row"><select name="Direction" id="Direction"><option value="sortie">Sortie</option><option value="entrée">Entrée</option></select><input name="Amount" type="number" min="1" step="1" placeholder="Montant FCFA" required /></div>
+            <input name="Description" maxlength="150" placeholder="Motif du mouvement" required />
+            <button class="button button-outline button-full" type="submit">Enregistrer le mouvement</button>
+        </form>
+    </section>
+
+    <section class="panel tariff-panel">
+        <div class="panel-heading"><div><span class="eyebrow">GRILLE TARIFAIRE</span><h2>Tarifs affichés à l’accueil</h2></div><a class="text-link" asp-controller="Tariffs" asp-action="Index">Modifier →</a></div>
+        <div class="tariff-grid">
+            @foreach (var tariff in Model.Tariffs)
+            {
+                <div class="tariff-chip"><span>@tariff.CategoryName</span><strong>@Fcfa(tariff.BasePrice)</strong></div>
+            }
+        </div>
+        <p class="notice notice-warm">Les prix et suppléments express préchargés sont des exemples modifiables. Validez-les avec votre grille avant facturation.</p>
+    </section>
+
+    <section class="panel panel-wide analytics-panel">
+        <div class="panel-heading"><div><span class="eyebrow">ACTIVITÉ FINANCIÈRE</span><h2>Encaissements · 7 derniers jours</h2></div><span class="analytics-total">30 jours : <strong>@Fcfa(Model.RevenueLast30Days)</strong></span></div>
+        @{ var maxDailyRevenue = Math.Max(1m, Model.DailyRevenue.Select(point => point.Amount).DefaultIfEmpty().Max()); }
+        <div class="revenue-chart" role="img" aria-label="Graphique des encaissements quotidiens des sept derniers jours">
+            @foreach (var point in Model.DailyRevenue)
+            {
+                var barHeight = point.Amount <= 0 ? 0 : Math.Max(5, (int)Math.Round(point.Amount / maxDailyRevenue * 100));
+                <div class="revenue-day" title="@point.Day.ToString("dd/MM/yyyy") : @Fcfa(point.Amount)">
+                    <div class="revenue-bar-track"><div class="revenue-bar" style="height: @(barHeight)%"></div></div>
+                    <span class="revenue-day-label">@point.Label</span><small>@Fcfa(point.Amount)</small>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="panel stage-panel">
+        <div class="panel-heading"><div><span class="eyebrow">PRODUCTION</span><h2>État des articles</h2></div><a class="text-link" asp-controller="Orders" asp-action="Index">Voir les tickets →</a></div>
+        @{ var totalTrackedItems = Math.Max(1, Model.ItemStages.Sum(stage => stage.Count)); }
+        @if (Model.ItemStages.Count == 0)
+        {
+            <div class="empty-inline">Les statuts apparaîtront après les premiers dépôts.</div>
+        }
+        else
+        {
+            <div class="stage-chart">
+                @for (var stageIndex = 0; stageIndex < Model.ItemStages.Count; stageIndex++)
+                {
+                    var stage = Model.ItemStages[stageIndex];
+                    var stageWidth = Math.Max(2, (int)Math.Round((double)stage.Count / totalTrackedItems * 100));
+                    <div class="stage-row"><div class="stage-label"><span>@stage.Status</span><strong>@stage.Count</strong></div><div class="stage-track"><div class="stage-fill stage-@stageIndex" style="width: @(stageWidth)%"></div></div></div>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="panel attention-panel">
+        <div class="panel-heading"><div><span class="eyebrow">À SUIVRE</span><h2>Alertes du pressing</h2></div></div>
+        <div class="overdue-pickups">
+            <div class="overdue-heading"><strong>Retraits en retard</strong><b class="@(Model.OverduePickupCount > 0 ? "attention-count-warning" : "")">@Model.OverduePickupCount</b></div>
+            @if (Model.OverduePickups.Count == 0)
+            {
+                <p class="overdue-empty">Aucun article en retard de retrait.</p>
+            }
+            else
+            {
+                @foreach (var pickup in Model.OverduePickups)
+                {
+                    <a class="overdue-pickup-row" asp-controller="Orders" asp-action="Details" asp-route-id="@pickup.OrderId">
+                        <span><strong>@pickup.CategoryName · @pickup.ClientName</strong><small>@pickup.TicketNo · prévu le @pickup.ExpectedPickupAt.ToString("dd/MM/yyyy")</small></span>
+                        <b>@pickup.DaysOverdue j</b>
+                    </a>
+                }
+            }
+        </div>
+        <a class="attention-link" asp-controller="Communications" asp-action="Index"><span class="attention-icon">✉</span><span><strong>Messages clients non lus</strong><small>Répondre depuis la boîte de réception</small></span><b>@Model.UnreadClientMessages</b></a>
+        <a class="attention-link" asp-controller="Inventory" asp-action="Index"><span class="attention-icon attention-stock">▦</span><span><strong>Consommables à réapprovisionner</strong><small>Consulter les seuils de stock</small></span><b class="@(Model.LowStockItems > 0 ? "attention-count-warning" : "")">@Model.LowStockItems</b></a>
+    </section>
+</div>

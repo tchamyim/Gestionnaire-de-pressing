@@ -1,0 +1,230 @@
+@model CommunicationsInboxViewModel
+@{
+    ViewData["Title"] = "Boîte de messagerie";
+}
+<div class="page-heading communication-heading">
+    <div>
+        <span class="eyebrow">ESPACE GÉRANT · MESSAGERIE COMPLÈTE</span>
+        <h1>Messagerie &amp; E-mails</h1>
+        <p>Discutez en direct avec vos clients, envoyez des e-mails libres ou prévenez-les quand leurs vêtements sont prêts.</p>
+    </div>
+    <div class="heading-actions">
+        <button type="button" class="button button-outline button-small" onclick="document.getElementById('staffSmtpModal').classList.add('open')">
+            ⚙ @(Model.EmailConfigured ? "Configurer l'e-mail (Actif)" : "Configurer l'e-mail")
+        </button>
+        <span class="communication-shield">🔒 Espace gérant</span>
+    </div>
+</div>
+
+@if (Model.EmailConfigured)
+{
+    <div class="notice notice-success notice-spaced">✓ Envoi direct par e-mail actif (expéditeur : <strong>@Model.EmailSettings.FromAddress</strong>). Vous pouvez aussi ouvrir Gmail ou votre messagerie Windows à tout moment.</div>
+}
+else
+{
+    <div class="notice notice-warm notice-spaced">L’envoi SMTP direct n’est pas encore configuré. La messagerie interne fonctionne à 100 %, et vous pouvez configurer vos e-mails via le bouton « ⚙ Configurer l'e-mail » ci-dessus.</div>
+}
+
+<div class="comm-top-grid">
+    <!-- Messagerie interne & Démarrer une conversation -->
+    <section class="panel communication-panel">
+        <div class="panel-heading">
+            <div><span class="eyebrow">MESSAGERIE INTERNE</span><h2>Conversations clients</h2></div>
+            <span class="count-pill">@Model.Conversations.Sum(thread => thread.UnreadMessages) non lu(s)</span>
+        </div>
+
+        <form asp-action="Thread" method="get" class="quick-start-chat">
+            <select name="clientId" required>
+                <option value="">Démarrer une nouvelle conversation avec un client…</option>
+                @foreach (var client in Model.AllClients)
+                {
+                    <option value="@client.ClientId">@client.FirstName @client.LastName · @client.Phone</option>
+                }
+            </select>
+            <button type="submit" class="button button-primary button-small">Ouvrir la discussion →</button>
+        </form>
+
+        <form asp-action="Index" method="get" class="inbox-filter">
+            <label class="inbox-search"><span>Rechercher</span><input type="search" name="q" value="@Model.SearchQuery" placeholder="Nom, téléphone ou contenu…" /></label>
+            <label class="inbox-unread"><input type="checkbox" name="unreadOnly" value="true" checked="@Model.UnreadOnly" /> Non lus uniquement</label>
+            <button class="button button-soft button-small" type="submit">Filtrer</button>
+            @if (!string.IsNullOrWhiteSpace(Model.SearchQuery) || Model.UnreadOnly)
+            {
+                <a class="button button-outline button-small" asp-action="Index">Effacer</a>
+            }
+        </form>
+
+        @if (Model.Conversations.Count == 0)
+        {
+            <div class="empty-state"><span>✉</span><strong>@(string.IsNullOrWhiteSpace(Model.SearchQuery) && !Model.UnreadOnly ? "Aucun message client" : "Aucune conversation correspondante")</strong><p>Sélectionnez un client ci-dessus pour démarrer un échange.</p></div>
+        }
+        else
+        {
+            <div class="conversation-inbox">
+            @foreach (var thread in Model.Conversations)
+            {
+                <a class="conversation-inbox-row @(thread.UnreadMessages > 0 ? "conversation-unread" : "")" asp-action="Thread" asp-route-clientId="@thread.ClientId">
+                    <span class="conversation-avatar">@thread.ClientName.FirstOrDefault()</span>
+                    <span class="conversation-inbox-main"><strong>@thread.ClientName</strong><small>@thread.LastSubject</small><span>@thread.LastBody</span></span>
+                    <span class="conversation-inbox-meta"><time>@thread.LastMessageAt.ToString("dd/MM HH:mm")</time>@if (thread.UnreadMessages > 0){<b>@thread.UnreadMessages nouveau(x)</b>}else{<small>Ouvrir →</small>}</span>
+                </a>
+            }
+            </div>
+        }
+    </section>
+
+    <!-- Composer un e-mail libre -->
+    <section class="panel communication-panel">
+        <div class="panel-heading">
+            <div><span class="eyebrow">ENVOI RAPIDE</span><h2>Nouvel e-mail libre</h2></div>
+        </div>
+        <form asp-action="SendFreeEmail" method="post" class="compose-form">
+            <div class="field">
+                <label for="freeClientSelect">Choisir un client <small>(facultatif)</small></label>
+                <select id="freeClientSelect" name="ClientId" onchange="fillFreeEmailClient(this)">
+                    <option value="">— Saisie manuelle d'adresse —</option>
+                    @foreach (var c in Model.AllClients.Where(x => !string.IsNullOrWhiteSpace(x.Email)))
+                    {
+                        <option value="@c.ClientId" data-email="@c.Email" data-name="@c.FirstName @c.LastName">@c.FirstName @c.LastName (@c.Email)</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="freeRecipient">Destinataire(s) <small>(séparés par virgule si plusieurs)</small></label>
+                <input id="freeRecipient" name="Recipient" type="text" placeholder="client@exemple.com, autre@exemple.com" required />
+            </div>
+            <div class="field">
+                <label for="freeSubject">Objet</label>
+                <input id="freeSubject" name="Subject" placeholder="Information Fresh & Care" required />
+            </div>
+            <div class="field">
+                <label for="freeBody">Message</label>
+                <textarea id="freeBody" name="Body" rows="5" placeholder="Rédigez votre message…" required></textarea>
+            </div>
+            <div class="compose-actions">
+                @if (Model.EmailConfigured)
+                {
+                    <button type="submit" class="button button-primary">✉ Envoyer l'e-mail</button>
+                }
+                else
+                {
+                    <button type="button" class="button button-primary" onclick="document.getElementById('staffSmtpModal').classList.add('open')">⚙ Configurer pour envoyer</button>
+                }
+                <button type="button" class="button button-outline" onclick="openGmailFree()">Ouvrir dans Gmail</button>
+            </div>
+        </form>
+    </section>
+</div>
+
+<section class="panel communication-panel">
+    <div class="panel-heading"><div><span class="eyebrow">À PRÉVENIR</span><h2>Articles prêts au retrait <span class="count-pill">@Model.ReadyOrders.Sum(order => order.ReadyItems)</span></h2></div><span class="muted">@Model.ReadyOrders.Count ticket(s)</span></div>
+    @if (Model.ReadyOrders.Count == 0)
+    {
+        <div class="empty-state"><span>✉</span><strong>Aucun vêtement prêt pour l’instant</strong><p>Quand un article passe au statut « prêt », il apparaît ici avec les coordonnées du client.</p></div>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="communication-table"><thead><tr><th>Client</th><th>Ticket</th><th>Articles prêts</th><th>Retrait prévu</th><th>Coordonnées</th><th>Actions</th></tr></thead><tbody>
+        @foreach (var notice in Model.ReadyOrders)
+        {
+            var waPhone = string.IsNullOrWhiteSpace(notice.WhatsApp) ? notice.Phone : notice.WhatsApp;
+            <tr>
+                <td><strong>@notice.ClientName</strong></td>
+                <td><a class="ticket-link" asp-controller="Orders" asp-action="Details" asp-route-id="@notice.OrderId">@notice.TicketNo</a></td>
+                <td><span class="ready-count">✓ @notice.ReadyItems prêt(s)</span></td>
+                <td>@(notice.NextPickup?.ToString("dd/MM/yyyy") ?? "À confirmer")</td>
+                <td><span>@(string.IsNullOrWhiteSpace(notice.Email) ? "E-mail manquant" : notice.Email)</span><small class="contact-subline">WhatsApp : @(string.IsNullOrWhiteSpace(waPhone) ? "non renseigné" : waPhone)</small></td>
+                <td><div class="communication-actions">
+                    <a class="button button-soft button-small" asp-action="Thread" asp-route-clientId="@notice.ClientId">Chat</a>
+                    @if (ClientCommunicationLinks.WhatsApp(waPhone, $"Bonjour {notice.ClientName}, vos vêtements du ticket {notice.TicketNo} sont prêts chez Fresh & Care. Vous pouvez passer les retirer. À bientôt !") is not null)
+                    { <a class="button button-whatsapp button-small" asp-action="WhatsApp" asp-route-id="@notice.OrderId">WhatsApp</a> }
+                    @if (!string.IsNullOrWhiteSpace(notice.Email))
+                    { <a class="button button-primary button-small" asp-action="Compose" asp-route-id="@notice.OrderId">E-mail</a> }
+                    else
+                    { <a class="button button-outline button-small" asp-controller="Clients" asp-action="Edit" asp-route-id="@notice.ClientId">Ajouter e-mail</a> }
+                </div></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<section class="panel communication-panel">
+    <div class="panel-heading"><div><span class="eyebrow">BOÎTE D’ENVOI</span><h2>Historique récent des e-mails</h2></div><span class="count-pill">@Model.RecentMessages.Count</span></div>
+    @if (Model.RecentMessages.Count == 0)
+    { <div class="empty-inline">Les e-mails envoyés depuis cette application apparaîtront ici.</div> }
+    else
+    {
+        <div class="table-scroll"><table><thead><tr><th>Date</th><th>Ticket</th><th>Destinataire</th><th>Objet</th><th>État</th></tr></thead><tbody>
+        @foreach (var message in Model.RecentMessages)
+        {
+            <tr><td>@message.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td><td>@(string.IsNullOrWhiteSpace(message.TicketNo) ? "—" : message.TicketNo)</td><td>@message.Recipient</td><td class="message-subject">@message.Subject</td><td><span class="message-state @(message.Status == "envoyé" ? "message-state-sent" : "message-state-failed")">@message.Status</span>@if(!string.IsNullOrWhiteSpace(message.Error)){<small class="message-error">@message.Error</small>}</td></tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<!-- Modal Configuration SMTP Gérant -->
+<div class="smtp-modal-overlay" id="staffSmtpModal" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="smtp-modal smtp-modal-pro">
+        <div class="smtp-modal-head">
+            <div><span class="eyebrow">PARAMÈTRES D'ENVOI</span><h2>Configuration des e-mails</h2></div>
+            <button type="button" class="smtp-close-x" onclick="document.getElementById('staffSmtpModal').classList.remove('open')">×</button>
+        </div>
+        <div class="smtp-presets">
+            <span>Remplissage rapide :</span>
+            <button type="button" onclick="applyStaffSmtp('smtp.gmail.com', 587, true)">Gmail</button>
+            <button type="button" onclick="applyStaffSmtp('smtp.office365.com', 587, true)">Outlook</button>
+            <button type="button" onclick="applyStaffSmtp('smtp.mail.yahoo.com', 587, true)">Yahoo</button>
+            <button type="button" onclick="applyStaffSmtp('ssl0.ovh.net', 587, true)">OVH</button>
+        </div>
+        <p class="smtp-intro">Pour Gmail, activez la validation en deux étapes puis utilisez une clé d’application Google de 16 caractères, pas votre mot de passe habituel. <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Créer une clé d’application</a>.</p>
+        <form asp-action="SaveEmailSettings" method="post" class="smtp-form">
+            <div class="form-grid form-grid-compact">
+                <div class="field"><label>E-mail d'envoi</label><input id="stFrom" name="FromAddress" type="email" value="@Model.EmailSettings.FromAddress" required /></div>
+                <div class="field"><label>Nom affiché</label><input name="FromName" value="@Model.EmailSettings.FromName" /></div>
+                <div class="field"><label>Identifiant SMTP</label><input id="stUser" name="User" value="@Model.EmailSettings.User" /></div>
+                <div class="field"><label>Mot de passe / Clé app</label><input name="Password" type="password" placeholder="Laisser vide pour conserver" /></div>
+                @if (!string.IsNullOrWhiteSpace(Model.EmailSettings.Password))
+                {
+                    <div class="field field-wide"><label class="active-check"><input name="ClearPassword" type="checkbox" value="true" /><span>Effacer le mot de passe SMTP enregistré</span></label></div>
+                }
+                <div class="field"><label>Serveur SMTP</label><input id="stHost" name="Host" value="@Model.EmailSettings.Host" required /></div>
+                <div class="field"><label>Port</label><input id="stPort" name="Port" type="number" value="@Model.EmailSettings.Port" min="1" max="65535" required /></div>
+                <div class="field field-wide"><label>E-mails en copie cachée (séparés par virgule)</label><input name="AdditionalEmails" value="@Model.EmailSettings.AdditionalEmails" /></div>
+                <div class="field field-wide"><label class="active-check"><input id="stSsl" name="EnableSsl" type="checkbox" value="true" checked="@(Model.EmailSettings.EnableSsl ? "checked" : null)" /><span>SSL / TLS</span></label></div>
+            </div>
+            <div class="smtp-actions">
+                <button type="button" class="button button-outline" onclick="document.getElementById('staffSmtpModal').classList.remove('open')">Fermer</button>
+                <button type="submit" class="button button-primary">✓ Enregistrer</button>
+            </div>
+        </form>
+        <form asp-action="TestEmailSettings" method="post" class="smtp-test-form">
+            <input type="email" name="testRecipient" placeholder="Votre adresse pour le test" required />
+            <button type="submit" class="button button-soft button-small">Envoyer un e-mail de test</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function fillFreeEmailClient(select) {
+    var opt = select.options[select.selectedIndex];
+    if (opt && opt.dataset.email) {
+        document.getElementById('freeRecipient').value = opt.dataset.email;
+    }
+}
+function openGmailFree() {
+    var to = encodeURIComponent(document.getElementById('freeRecipient').value || '');
+    var su = encodeURIComponent(document.getElementById('freeSubject').value || '');
+    var body = encodeURIComponent(document.getElementById('freeBody').value || '');
+    window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + to + '&su=' + su + '&body=' + body, '_blank');
+}
+function applyStaffSmtp(host, port, ssl) {
+    document.getElementById('stHost').value = host;
+    document.getElementById('stPort').value = port;
+    document.getElementById('stSsl').checked = ssl;
+    var f = document.getElementById('stFrom').value;
+    var u = document.getElementById('stUser');
+    if (f && !u.value) u.value = f;
+}
+</script>

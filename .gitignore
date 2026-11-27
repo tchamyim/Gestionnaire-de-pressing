@@ -1,0 +1,16 @@
+bin/
+obj/
+.venv/
+tmp/
+.vs/
+.vscode/
+*.user
+*.suo
+*.accdb
+*.laccdb
+appsettings.Local.json
+release/
+installer/payload/
+**/WebView2/
+*.log
+pressingsPDF.pdf

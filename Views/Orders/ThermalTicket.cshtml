@@ -1,0 +1,117 @@
+@model OrderDetailViewModel
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <title>Ticket @Model.Order.TicketNo — Fresh &amp; Care</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Consolas', 'Courier New', monospace; background: #f2f5f8; margin: 0; padding: 20px; color: #111; }
+        .no-print { text-align: center; margin-bottom: 18px; display: flex; justify-content: center; gap: 10px; }
+        .btn { background: #10344b; color: #fff; border: 0; padding: 10px 18px; border-radius: 7px; font-family: sans-serif; font-weight: 700; cursor: pointer; font-size: 13px; text-decoration: none; }
+        .btn-out { background: #fff; color: #10344b; border: 1px solid #cbd5e1; }
+        .ticket-80mm { width: 80mm; margin: 0 auto; background: #fff; padding: 6mm 5mm; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+        .center { text-align: center; }
+        .brand { font-size: 16px; font-weight: 700; letter-spacing: 1px; margin: 0; }
+        .sub { font-size: 10px; margin: 2px 0 6px; }
+        .sep { border-top: 1px dashed #333; margin: 8px 0; }
+        .meta { font-size: 11px; line-height: 1.45; }
+        .ticket-big { font-size: 16px; font-weight: 700; text-align: center; margin: 6px 0; border: 1px solid #111; padding: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { text-align: left; border-bottom: 1px solid #111; padding: 3px 0; font-size: 10px; }
+        td { padding: 4px 0; vertical-align: top; border-bottom: 1px dotted #ccc; }
+        .right { text-align: right; white-space: nowrap; }
+        .note { font-size: 9px; color: #444; display: block; }
+        .totals { font-size: 12px; margin-top: 6px; line-height: 1.5; }
+        .totals div { display: flex; justify-content: space-between; }
+        .totals .grand { font-size: 14px; font-weight: 700; border-top: 1px solid #111; padding-top: 4px; margin-top: 4px; }
+        .footer { text-align: center; font-size: 10px; margin-top: 10px; }
+        .tags-section { width: 80mm; margin: 18px auto 0; }
+        .tag-card { background: #fff; border: 1.5px dashed #111; padding: 4mm; margin-bottom: 4mm; font-size: 11px; page-break-inside: avoid; }
+        .tag-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; border-bottom: 1px solid #111; padding-bottom: 2px; margin-bottom: 4px; }
+        @@media print {
+            body { background: #fff; padding: 0; }
+            .no-print { display: none; }
+            .ticket-80mm, .tags-section { box-shadow: none; width: 100%; max-width: 80mm; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="btn" onclick="window.print()">🖨 Imprimer Ticket &amp; Étiquettes</button>
+        <a class="btn btn-out" href="javascript:window.close()">Fermer</a>
+    </div>
+
+    <div class="ticket-80mm">
+        <div class="center">
+            <p class="brand">FRESH &amp; CARE</p>
+            <p class="sub">PRESSING · BLANCHISSERIE · YAOUNDÉ</p>
+        </div>
+        <div class="ticket-big">@Model.Order.TicketNo</div>
+        <div class="meta">
+            <div><strong>Date :</strong> @Model.Order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+            <div><strong>Client :</strong> @Model.Client.FirstName @Model.Client.LastName</div>
+            <div><strong>Tél :</strong> @Model.Client.Phone</div>
+        </div>
+        <div class="sep"></div>
+        <table>
+            <thead><tr><th>Article</th><th class="right">Prix</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td>
+                        <strong>@item.CategoryName</strong>@(item.IsExpress ? " [EXP]" : "")
+                        @if (!string.IsNullOrWhiteSpace(item.Description)) { <span class="note">@item.Description</span> }
+                        @if (!string.IsNullOrWhiteSpace(item.ConditionNotes)) { <span class="note">⚠ Réserve: @item.ConditionNotes</span> }
+                        @if (item.ExpectedPickupAt.HasValue) { <span class="note">Retrait: @item.ExpectedPickupAt.Value.ToString("dd/MM/yyyy")</span> }
+                    </td>
+                    <td class="right">@((item.UnitPrice + item.ExpressFee).ToString("N0"))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <div class="sep"></div>
+        <div class="totals">
+            @if (Model.Order.DiscountAmount > 0)
+            {
+                <div><span>Remise</span><span>-@Model.Order.DiscountAmount.ToString("N0") FCFA</span></div>
+            }
+            <div class="grand"><span>TOTAL</span><span>@Model.Order.Total.ToString("N0") FCFA</span></div>
+            <div><span>Déjà réglé</span><span>@Model.Order.Paid.ToString("N0") FCFA</span></div>
+            <div><strong>Reste à payer</strong><strong>@Model.Order.Remaining.ToString("N0") FCFA</strong></div>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <div class="sep"></div>
+            <div class="meta"><strong>Note :</strong> @Model.Notes</div>
+        }
+        <div class="sep"></div>
+        <div class="footer">
+            <p>Merci de votre confiance !</p>
+            <p>Le soin du linge, en toute simplicité.</p>
+        </div>
+    </div>
+
+    <div class="tags-section">
+        <div class="center sub" style="margin-bottom:6px;">--- ÉTIQUETTES ATELIER À DÉCOUPER ---</div>
+        @for (var i = 0; i < Model.Items.Count; i++)
+        {
+            var item = Model.Items[i];
+            <div class="tag-card">
+                <div class="tag-top">
+                    <span>@Model.Order.TicketNo</span>
+                    <span>#@(i + 1)/@Model.Items.Count @(item.IsExpress ? "⚡EXPRESS" : "")</span>
+                </div>
+                <div><strong>@Model.Client.FirstName @Model.Client.LastName</strong> (@Model.Client.Phone)</div>
+                <div>@item.CategoryName @(!string.IsNullOrWhiteSpace(item.Description) ? "— " + item.Description : "")</div>
+                @if (!string.IsNullOrWhiteSpace(item.ConditionNotes)) { <div class="note">⚠ @item.ConditionNotes</div> }
+                <div class="note">Retrait : @(item.ExpectedPickupAt?.ToString("dd/MM/yyyy") ?? "—")</div>
+            </div>
+        }
+    </div>
+</body>
+</html>

@@ -1,0 +1,16 @@
+@model ClientInput
+@{
+    ViewData["Title"] = "Modifier le client";
+}
+<div class="page-heading"><div><span class="eyebrow">FICHE CLIENT</span><h1>Modifier les coordonnées</h1></div><a class="button button-outline" asp-action="Index">← Clients</a></div>
+<div class="form-layout"><section class="panel form-panel"><form asp-action="Edit" method="post">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-grid">
+        <div class="field"><label asp-for="LastName">Nom</label><input asp-for="LastName"/><span asp-validation-for="LastName"></span></div>
+        <div class="field"><label asp-for="FirstName">Prénom</label><input asp-for="FirstName"/><span asp-validation-for="FirstName"></span></div>
+        <div class="field"><label asp-for="Phone">Téléphone</label><input asp-for="Phone"/></div>
+        <div class="field"><label asp-for="WhatsApp">WhatsApp</label><input asp-for="WhatsApp"/></div>
+        <div class="field field-wide"><label asp-for="Email">E-mail (facultatif)</label><input asp-for="Email"/><span asp-validation-for="Email"></span></div>
+    </div>
+    <div class="form-actions"><a class="button button-outline" asp-action="Index">Annuler</a><button class="button button-primary" type="submit">Enregistrer les modifications</button></div>
+</form></section></div>

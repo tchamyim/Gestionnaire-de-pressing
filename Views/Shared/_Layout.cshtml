@@ -1,0 +1,55 @@
+﻿<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] ?? "Gestion Pressing") · Fresh &amp; Care</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/enhancements.css" asp-append-version="true" />
+</head>
+<body class="@(User.Identity?.IsAuthenticated == true ? "app-page" : "auth-page")">
+    @if (User.IsInRole("staff"))
+    {
+        <div class="app-shell">
+            <aside class="sidebar">
+                <a class="brand" asp-controller="Dashboard" asp-action="Index"><img class="brand-logo" src="~/img/fresh-care-logo.png" alt="Fresh &amp; Care"/><span><strong>FRESH <b>&amp;</b> CARE</strong><small>GESTION PRESSING</small></span></a>
+                <div class="nav-caption">ESPACE GESTION</div>
+                <nav class="main-nav">
+                    <a asp-controller="Dashboard" asp-action="Index">🏠 <span>Dashboard</span></a>
+                    <a asp-controller="Clients" asp-action="Index">👥 <span>Clients</span></a>
+                    <a asp-controller="Orders" asp-action="Index">📋 <span>Tickets &amp; articles</span></a>
+<a asp-controller="Communications" asp-action="Index">✉️ <span>Messagerie</span>@if (ViewBag.UnreadMessages != null && (int)ViewBag.UnreadMessages > 0){<b class="topbar-badge">@ViewBag.UnreadMessages</b>}</a>
+                    <a asp-controller="Inventory" asp-action="Index">📦 <span>Stock &amp; consommables</span></a>
+                    <a asp-controller="Tariffs" asp-action="Index">💲 <span>Grille tarifaire</span></a>
+                    <a asp-controller="Dashboard" asp-action="Index">📊 <span>Rapports</span></a>
+                </nav>
+                <div class="sidebar-bottom">
+                    <div class="user-chip"><span class="user-avatar">@User.Identity?.Name?.Substring(0, 1).ToUpperInvariant()</span><span><strong>Gestionnaire</strong><small>@User.Identity?.Name</small></span></div>
+                    <form asp-controller="Account" asp-action="Logout" method="post"><button class="nav-logout" type="submit">↪ Déconnexion</button></form>
+                </div>
+            </aside>
+            <main class="main-content">
+                <header class="topbar"><div><span class="eyebrow">ESPACE PROFESSIONNEL</span><strong>Bienvenue chez Fresh &amp; Care</strong></div><a class="button button-primary button-small" asp-controller="Orders" asp-action="Create">＋ Nouveau dépôt</a></header>
+                <div class="content-wrap">
+                    @await Html.PartialAsync("_Flash")
+                    @RenderBody()
+                </div>
+            </main>
+        </div>
+    }
+    else if (User.IsInRole("client"))
+    {
+        <div class="portal-shell">
+            <header class="portal-header"><a class="brand brand-dark" asp-controller="Portal" asp-action="Index"><img class="brand-logo" src="~/img/fresh-care-logo.png" alt="Fresh &amp; Care"/><span><strong>FRESH <b>&amp;</b> CARE</strong><small>VOTRE ESPACE CLIENT</small></span></a><div class="portal-head-actions"><a class="button button-soft button-small" asp-controller="Portal" asp-action="Conversation">✉ Écrire au pressing</a><span>Bonjour, @User.Identity?.Name</span><form asp-controller="Portal" asp-action="Logout" method="post"><button class="button button-outline button-small" type="submit">Déconnexion</button></form></div></header>
+            <main class="portal-content">@await Html.PartialAsync("_Flash") @RenderBody()</main>
+        </div>
+    }
+    else
+    {
+        <main class="auth-layout">
+            <section class="auth-hero"><div class="auth-hero-shade"></div><a class="brand brand-light" asp-controller="Home" asp-action="Index"><img class="brand-logo" src="~/img/fresh-care-logo.png" alt="Fresh &amp; Care"/><span><strong>FRESH <b>&amp;</b> CARE</strong><small>PRESSING · BLANCHISSERIE · ENTRETIEN TEXTILE</small></span></a><div class="hero-message"><span class="hero-kicker">LE SOIN DU LINGE</span><h1>En toute <em>simplicité.</em></h1><p>Un suivi clair, un linge impeccable et un service pensé pour vous.</p><div class="hero-pills"><span>✦ Service soigné</span><span>◷ Suivi en temps réel</span></div></div></section>
+            <section class="auth-panel">@await Html.PartialAsync("_Flash") @RenderBody()<footer>© @DateTime.Now.Year Fresh &amp; Care · Yaoundé</footer></section>
+        </main>
+    }
+</body>
+</html>

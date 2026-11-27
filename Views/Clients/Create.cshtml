@@ -1,0 +1,17 @@
+@model ClientInput
+@{
+    ViewData["Title"] = "Nouveau client";
+}
+<div class="page-heading"><div><span class="eyebrow">FICHE CLIENT</span><h1>Ajouter un client</h1><p>Un code privé sera généré pour son espace de suivi.</p></div><a class="button button-outline" asp-action="Index">← Retour aux clients</a></div>
+<div class="form-layout"><section class="panel form-panel"><form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="form-grid">
+        <div class="field"><label asp-for="LastName">Nom</label><input asp-for="LastName" autocomplete="family-name"/><span asp-validation-for="LastName"></span></div>
+        <div class="field"><label asp-for="FirstName">Prénom</label><input asp-for="FirstName" autocomplete="given-name"/><span asp-validation-for="FirstName"></span></div>
+        <div class="field"><label asp-for="Phone">Téléphone</label><input asp-for="Phone" placeholder="+237 6XX XX XX XX" autocomplete="tel"/><span asp-validation-for="Phone"></span></div>
+        <div class="field"><label asp-for="WhatsApp">WhatsApp</label><input asp-for="WhatsApp" placeholder="Numéro WhatsApp, si différent"/><span asp-validation-for="WhatsApp"></span></div>
+        <div class="field field-wide"><label asp-for="Email">E-mail <small>(facultatif)</small></label><input asp-for="Email" autocomplete="email"/><span asp-validation-for="Email"></span></div>
+    </div>
+    <div class="form-note">Le client se connectera à son espace avec son numéro de téléphone et le code à 6 chiffres affiché après l’enregistrement. Remettez ce code au client de manière privée.</div>
+    <div class="form-actions"><a class="button button-outline" asp-action="Index">Annuler</a><button class="button button-primary" type="submit">Enregistrer le client</button></div>
+</form></section></div>

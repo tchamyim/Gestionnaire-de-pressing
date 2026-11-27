@@ -1,0 +1,27 @@
+@model ComposeEmailInput
+@{
+    ViewData["Title"] = "Écrire au client";
+}
+<div class="page-heading"><div><span class="eyebrow">NOTIFICATION DE DISPONIBILITÉ</span><h1>Écrire au client</h1><p>Message préparé pour @ViewBag.ClientName · Ticket @ViewBag.TicketNo</p></div><a class="button button-outline" asp-action="Index">← Boîte de communication</a></div>
+<div class="compose-layout">
+    <section class="panel compose-panel">
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+        <form asp-action="Send" method="post" class="compose-form">
+            <input asp-for="OrderId" type="hidden" />
+            <div class="field"><label asp-for="Recipient">Adresse e-mail du client</label><input asp-for="Recipient" autocomplete="email"/><span asp-validation-for="Recipient"></span></div>
+            <div class="field"><label asp-for="Subject">Objet</label><input asp-for="Subject"/><span asp-validation-for="Subject"></span></div>
+            <div class="field"><label asp-for="Body">Message</label><textarea asp-for="Body" rows="12"></textarea><span asp-validation-for="Body"></span></div>
+            <div class="compose-actions">
+                @if (ViewBag.EmailConfigured is true)
+                { <button class="button button-primary" type="submit">Envoyer par Fresh &amp; Care</button> }
+                else
+                { <button class="button button-primary" type="submit" disabled title="Configurez le SMTP pour activer l’envoi direct">Envoi direct non configuré</button> }
+                <a class="button button-outline" href="@ViewBag.GmailUrl">Ouvrir Gmail</a>
+                <a class="button button-soft" href="@ViewBag.MailtoUrl">Autre messagerie</a>
+                <a class="button button-soft" asp-controller="Orders" asp-action="Details" asp-route-id="@Model.OrderId">Retour au ticket</a>
+            </div>
+            <p class="field-hint">Gmail et l’autre messagerie ouvrent un brouillon prérempli dans le navigateur ou votre application de courrier. Vérifiez-le puis cliquez sur Envoyer.</p>
+        </form>
+    </section>
+    <aside class="panel compose-note"><span class="eyebrow">PROTECTION DES CLIENTS</span><h2>Espace gérant uniquement</h2><p>Les coordonnées et l’historique d’envoi ne sont pas disponibles dans le portail client.</p><div class="notice notice-warm">Un e-mail ne part directement que lorsque le serveur SMTP est configuré. Le brouillon reste disponible via votre messagerie.</div></aside>
+</div>

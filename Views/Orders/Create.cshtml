@@ -1,0 +1,280 @@
+@model NewOrderInput
+@{
+    ViewData["Title"] = "Nouveau dépôt";
+    var clients = ViewBag.Clients as List<ClientRecord> ?? [];
+    var tariffs = ViewBag.Tariffs as List<TariffCategory> ?? [];
+    var defaultPickup = DateTime.Today.AddDays(2).ToString("yyyy-MM-dd");
+}
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">RÉCEPTION DU LINGE · POINT DE VENTE</span>
+        <h1>Enregistrer un dépôt</h1>
+        <p>Ajoutez vos articles avec quantités, réserves et acompte éventuel. Le total se calcule en direct.</p>
+    </div>
+    <a class="button button-outline" asp-action="Index">← Tickets</a>
+</div>
+
+<form asp-action="Create" method="post" class="deposit-form" id="posForm">
+    <div asp-validation-summary="All" class="validation-summary"></div>
+    <div class="deposit-columns">
+        <div class="pos-left-col">
+            <section class="panel form-panel">
+                <div class="panel-heading">
+                    <div><span class="eyebrow">CLIENT</span><h2>À qui appartient ce linge ?</h2></div>
+                    <a class="text-link" asp-controller="Clients" asp-action="Create">＋ Nouveau client</a>
+                </div>
+                <div class="field">
+                    <label for="ClientId">Client</label>
+                    <select asp-for="ClientId" required>
+                        <option value="">Choisir un client…</option>
+                        @foreach (var client in clients)
+                        {
+                            <option value="@client.ClientId">@client.FirstName @client.LastName · @client.Phone</option>
+                        }
+                    </select>
+                    <span asp-validation-for="ClientId"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Notes">Note générale <small>(facultatif)</small></label>
+                    <textarea asp-for="Notes" rows="2" placeholder="Consigne particulière (sur cintre, plié, parfum…)"></textarea>
+                </div>
+            </section>
+
+            <section class="panel form-panel pos-payment-box">
+                <div class="panel-heading">
+                    <div><span class="eyebrow">RÉSUMÉ &amp; RÈGLEMENT</span><h2>Total &amp; Acompte</h2></div>
+                </div>
+                <div class="pos-totals-list">
+                    <div><span>Sous-total standard</span><strong id="posSubtotal">0 FCFA</strong></div>
+                    <div><span>Supplément Express</span><strong id="posExpress">0 FCFA</strong></div>
+                    <div class="pos-discount-row">
+                        <label for="DiscountAmount">Remise (FCFA)</label>
+                        <input id="DiscountAmount" name="DiscountAmount" type="number" min="0" step="100" value="@Model.DiscountAmount" oninput="recalcPos()" />
+                    </div>
+                    <div class="pos-grand-total">
+                        <span>Total Net à payer</span>
+                        <strong id="posNetTotal">0 FCFA</strong>
+                    </div>
+                </div>
+                <div class="form-grid form-grid-compact" style="margin-top: 14px;">
+                    <div class="field">
+                        <label for="InitialPaymentAmount">Acompte versé (FCFA)</label>
+                        <input id="InitialPaymentAmount" name="InitialPaymentAmount" type="number" min="0" step="100" value="@Model.InitialPaymentAmount" oninput="recalcPos()" />
+                    </div>
+                    <div class="field">
+                        <label for="InitialPaymentMethod">Mode de paiement</label>
+                        <select id="InitialPaymentMethod" name="InitialPaymentMethod">
+                            <option value="Espèces">Espèces</option>
+                            <option value="MTN Money">MTN Money</option>
+                            <option value="Orange Money">Orange Money</option>
+                            <option value="Virement">Virement</option>
+                            <option value="Carte">Carte</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pos-remaining-row">
+                    <span>Reste dû après acompte</span>
+                    <strong id="posRemaining">0 FCFA</strong>
+                </div>
+                <div class="pos-quick-pay">
+                    <button type="button" class="button button-soft button-small" onclick="payPercent(0.5)">50%</button>
+                    <button type="button" class="button button-soft button-small" onclick="payPercent(1)">Tout régler (100%)</button>
+                    <button type="button" class="button button-outline button-small" onclick="payPercent(0)">0</button>
+                </div>
+            </section>
+        </div>
+
+        <section class="panel form-panel">
+            <div class="panel-heading">
+                <div><span class="eyebrow">ARTICLES</span><h2>Pièces déposées <span class="count-pill" id="posItemCount">1</span></h2></div>
+                <button class="button button-primary button-small" type="button" onclick="addOrderLine()">＋ Ajouter un article</button>
+            </div>
+
+            <div id="order-lines">
+                @for (var i = 0; i < Math.Max(1, Model.Items.Count); i++)
+                {
+                    var item = i < Model.Items.Count ? Model.Items[i] : new OrderItemInput { ExpectedPickup = defaultPickup, Quantity = 1 };
+                    <div class="order-line" data-line>
+                        <div class="line-top">
+                            <span>Article <b class="line-number">@(i + 1)</b> · <strong class="line-subtotal">0 FCFA</strong></span>
+                            <button type="button" class="remove-line" onclick="removeOrderLine(this)" title="Supprimer cette ligne">×</button>
+                        </div>
+                        <div class="form-grid form-grid-compact pos-line-grid">
+                            <div class="field">
+                                <label>Catégorie</label>
+                                <select name="Items[@i].CategoryId" class="category-select" onchange="recalcPos()">
+                                    <option value="0" data-price="0" data-express="0">Choisir…</option>
+                                    @foreach (var tariff in tariffs)
+                                    {
+                                        <option selected="@(item.CategoryId == tariff.CategoryId ? "selected" : null)"
+                                                value="@tariff.CategoryId"
+                                                data-price="@tariff.BasePrice.ToString(CultureInfo.InvariantCulture)"
+                                                data-express="@tariff.ExpressPercent.ToString(CultureInfo.InvariantCulture)">
+                                            @tariff.CategoryName · @Fcfa(tariff.BasePrice)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Quantité</label>
+                                <input name="Items[@i].Quantity" type="number" class="qty-input" min="1" max="100" value="@Math.Max(1, item.Quantity)" oninput="recalcPos()" />
+                            </div>
+                            <div class="field">
+                                <label>Service</label>
+                                <select name="Items[@i].Service" class="service-select" onchange="recalcPos()">
+                                    <option selected="@(item.Service == "normal" ? "selected" : null)" value="normal">Standard</option>
+                                    <option selected="@(item.Service == "express" ? "selected" : null)" value="express">Lavage express</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Retrait prévu</label>
+                                <input name="Items[@i].ExpectedPickup" type="date" value="@(string.IsNullOrEmpty(item.ExpectedPickup) ? defaultPickup : item.ExpectedPickup)" />
+                            </div>
+                            <div class="field">
+                                <label>Description / repère</label>
+                                <input name="Items[@i].Description" value="@item.Description" placeholder="Ex. chemise blanche, rayures…" />
+                            </div>
+                            <div class="field">
+                                <label>État des lieux / réserves</label>
+                                <input name="Items[@i].ConditionNotes" value="@item.ConditionNotes" placeholder="Ex. bouton manquant, tache…" />
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <div class="form-actions">
+        <a class="button button-outline" asp-action="Index">Annuler</a>
+        <button class="button button-primary" type="submit">✓ Enregistrer &amp; Générer le ticket</button>
+    </div>
+</form>
+
+<template id="orderLineTemplate">
+    <div class="order-line" data-line>
+        <div class="line-top">
+            <span>Article <b class="line-number">1</b> · <strong class="line-subtotal">0 FCFA</strong></span>
+            <button type="button" class="remove-line" onclick="removeOrderLine(this)" title="Supprimer cette ligne">×</button>
+        </div>
+        <div class="form-grid form-grid-compact pos-line-grid">
+            <div class="field">
+                <label>Catégorie</label>
+                <select name="Items[__IDX__].CategoryId" class="category-select" onchange="recalcPos()">
+                    <option value="0" data-price="0" data-express="0">Choisir…</option>
+                    @foreach (var tariff in tariffs)
+                    {
+                        <option value="@tariff.CategoryId"
+                                data-price="@tariff.BasePrice.ToString(CultureInfo.InvariantCulture)"
+                                data-express="@tariff.ExpressPercent.ToString(CultureInfo.InvariantCulture)">
+                            @tariff.CategoryName · @Fcfa(tariff.BasePrice)
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Quantité</label>
+                <input name="Items[__IDX__].Quantity" type="number" class="qty-input" min="1" max="100" value="1" oninput="recalcPos()" />
+            </div>
+            <div class="field">
+                <label>Service</label>
+                <select name="Items[__IDX__].Service" class="service-select" onchange="recalcPos()">
+                    <option value="normal">Standard</option>
+                    <option value="express">Lavage express</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Retrait prévu</label>
+                <input name="Items[__IDX__].ExpectedPickup" type="date" value="@defaultPickup" />
+            </div>
+            <div class="field">
+                <label>Description / repère</label>
+                <input name="Items[__IDX__].Description" placeholder="Ex. chemise blanche, rayures…" />
+            </div>
+            <div class="field">
+                <label>État des lieux / réserves</label>
+                <input name="Items[__IDX__].ConditionNotes" placeholder="Ex. bouton manquant, tache…" />
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+var currentNetTotal = 0;
+
+function formatFcfa(val) {
+    return Math.round(val).toLocaleString('fr-FR') + ' FCFA';
+}
+
+function reindexLines() {
+    var lines = document.querySelectorAll('#order-lines [data-line]');
+    document.getElementById('posItemCount').textContent = lines.length;
+    lines.forEach(function (line, idx) {
+        line.querySelector('.line-number').textContent = (idx + 1);
+        line.querySelectorAll('[name^="Items["]').forEach(function (el) {
+            el.name = el.name.replace(/Items\[\d+\]/, 'Items[' + idx + ']');
+        });
+    });
+}
+
+function addOrderLine() {
+    var container = document.getElementById('order-lines');
+    var tpl = document.getElementById('orderLineTemplate').innerHTML;
+    var count = container.querySelectorAll('[data-line]').length;
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = tpl.replace(/__IDX__/g, count).trim();
+    container.appendChild(wrapper.firstElementChild);
+    reindexLines();
+    recalcPos();
+}
+
+function removeOrderLine(btn) {
+    var container = document.getElementById('order-lines');
+    var lines = container.querySelectorAll('[data-line]');
+    if (lines.length <= 1) {
+        var first = lines[0];
+        first.querySelector('.category-select').value = '0';
+        first.querySelector('.qty-input').value = '1';
+        recalcPos();
+        return;
+    }
+    btn.closest('[data-line]').remove();
+    reindexLines();
+    recalcPos();
+}
+
+function recalcPos() {
+    var subTotal = 0;
+    var expressTotal = 0;
+    document.querySelectorAll('#order-lines [data-line]').forEach(function (line) {
+        var sel = line.querySelector('.category-select');
+        var opt = sel.options[sel.selectedIndex];
+        var price = parseFloat(opt?.dataset.price || '0') || 0;
+        var expPct = parseFloat(opt?.dataset.express || '0') || 0;
+        var qty = Math.max(1, parseInt(line.querySelector('.qty-input').value || '1', 10));
+        var isExpress = line.querySelector('.service-select').value === 'express';
+        var expFee = isExpress ? Math.round(price * expPct / 100) : 0;
+        var lineBase = price * qty;
+        var lineExp = expFee * qty;
+        subTotal += lineBase;
+        expressTotal += lineExp;
+        line.querySelector('.line-subtotal').textContent = formatFcfa(lineBase + lineExp);
+    });
+    var discount = Math.max(0, parseFloat(document.getElementById('DiscountAmount').value || '0') || 0);
+    currentNetTotal = Math.max(0, subTotal + expressTotal - discount);
+    var pay = Math.max(0, parseFloat(document.getElementById('InitialPaymentAmount').value || '0') || 0);
+    var remaining = Math.max(0, currentNetTotal - pay);
+
+    document.getElementById('posSubtotal').textContent = formatFcfa(subTotal);
+    document.getElementById('posExpress').textContent = formatFcfa(expressTotal);
+    document.getElementById('posNetTotal').textContent = formatFcfa(currentNetTotal);
+    document.getElementById('posRemaining').textContent = formatFcfa(remaining);
+}
+
+function payPercent(pct) {
+    document.getElementById('InitialPaymentAmount').value = Math.round(currentNetTotal * pct);
+    recalcPos();
+}
+
+document.addEventListener('DOMContentLoaded', recalcPos);
+</script>
