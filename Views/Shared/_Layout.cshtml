@@ -44,6 +44,25 @@
                 </div>
             </main>
         </div>
+        <aside class="naya-page-guide" data-naya-guide
+               data-controller="@activeController"
+               data-action="@activeAction"
+               data-auto-open="@((activeController == "Clients" && (activeAction == "Create" || activeAction == "Edit")) || (activeController == "Orders" && (activeAction == "Create" || activeAction == "Details")) || (activeController == "Communications" && (activeAction == "Compose" || activeAction == "Thread")) || (activeController == "Inventory" && activeAction == "Index") || (activeController == "Tariffs" && activeAction == "Index") || (activeController == "Dashboard" && activeAction == "ClosingReport") ? "true" : "false")">
+            <section class="naya-page-guide-panel" data-naya-guide-panel hidden>
+                <header><span data-naya-guide-heading>Naya · guide de la page</span><button type="button" data-naya-guide-close aria-label="Fermer le guide Naya">×</button></header>
+                <strong data-naya-guide-title>Comprendre cette étape</strong>
+                <p data-naya-guide-text aria-live="polite"></p>
+                <div class="naya-page-guide-actions">
+                    <button class="button button-primary button-small" type="button" data-naya-guide-speak>🔊 Écouter les conseils</button>
+                    <button class="button button-outline button-small" type="button" data-naya-guide-stop disabled>Arrêter</button>
+                </div>
+                <small class="naya-page-guide-status" data-naya-guide-status aria-live="polite"></small>
+            </section>
+            <button class="naya-page-guide-toggle" type="button" data-naya-guide-toggle aria-expanded="false">
+                <span class="naya-guide-avatar" aria-hidden="true">N</span><span><strong>Naya</strong><small data-naya-guide-toggle-text>Besoin d’aide ?</small></span><span class="naya-guide-chevron" aria-hidden="true">⌃</span>
+            </button>
+        </aside>
+        <script src="~/js/naya-guide.js" asp-append-version="true"></script>
     }
     else if (User.IsInRole("client"))
     {
