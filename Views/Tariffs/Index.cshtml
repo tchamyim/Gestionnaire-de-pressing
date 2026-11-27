@@ -1,0 +1,28 @@
+@model List<TariffCategory>
+@{
+    ViewData["Title"] = "Grille tarifaire";
+}
+<div class="page-heading"><div><span class="eyebrow">PARAMÈTRES DU PRESSING</span><h1>Grille tarifaire</h1><p>Prix de base et supplément express appliqués aux nouveaux dépôts.</p></div></div>
+<div class="notice notice-warm notice-spaced">Les prix chargés au démarrage sont des exemples modifiables. La page des tarifs publics consultée ne permettait pas de vérifier une grille fiable pour votre pressing.</div>
+<section class="panel tariff-management"><div class="panel-heading"><div><span class="eyebrow">CATÉGORIES</span><h2>Tarifs actifs et archivés</h2></div></div>
+<div class="tariff-list">
+@foreach (var item in Model)
+{
+    <form asp-action="Save" method="post" class="tariff-row">
+        <input type="hidden" name="CategoryId" value="@item.CategoryId"/>
+        <div class="tariff-name"><span class="tariff-swatch"></span><input name="CategoryName" value="@item.CategoryName" maxlength="100" required/></div>
+        <label>Prix standard <span><input type="number" name="BasePrice" value="@item.BasePrice" min="0" step="1" required/> FCFA</span></label>
+        <label>Majoration express <span><input type="number" name="ExpressPercent" value="@item.ExpressPercent" min="0" max="500" step="1" required/> %</span></label>
+        <label class="active-check"><input type="checkbox" name="IsActive" value="true" checked="@(item.IsActive ? "checked" : null)"/> Active</label>
+        <button class="button button-soft button-small" type="submit">Enregistrer</button>
+    </form>
+}
+</div></section>
+<section class="panel add-category"><div class="panel-heading"><div><span class="eyebrow">NOUVELLE CATÉGORIE</span><h2>Ajouter une pièce à la grille</h2></div></div>
+<form asp-action="Save" method="post" class="new-tariff-form">
+    <input type="hidden" name="CategoryId" value="0"/><input type="hidden" name="IsActive" value="true"/>
+    <div class="field"><label>Nom de la catégorie</label><input name="CategoryName" maxlength="100" placeholder="Ex. Couverture" required/></div>
+    <div class="field"><label>Prix standard (FCFA)</label><input name="BasePrice" type="number" min="0" step="1" value="0" required/></div>
+    <div class="field"><label>Supplément express (%)</label><input name="ExpressPercent" type="number" min="0" max="500" step="1" value="30" required/></div>
+    <button class="button button-primary" type="submit">＋ Ajouter la catégorie</button>
+</form></section>

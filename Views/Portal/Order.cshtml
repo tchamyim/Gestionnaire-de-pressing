@@ -1,0 +1,16 @@
+@model OrderDetailViewModel
+@{
+    ViewData["Title"] = Model.Order.TicketNo;
+}
+<div class="page-heading"><div><span class="eyebrow">MON TICKET</span><h1 class="ticket-heading">@Model.Order.TicketNo <span class="status-pill">@Model.Order.OrderStatus</span></h1><p>Déposé le @Model.Order.CreatedAt.ToString("dd/MM/yyyy à HH:mm")</p></div><div class="heading-actions"><a class="button button-outline" asp-action="Index">← Mon espace</a><a class="button button-soft" asp-controller="Receipts" asp-action="InvoicePdf" asp-route-id="@Model.Order.OrderId">↓ Facture PDF</a><a class="button button-soft" asp-controller="Receipts" asp-action="InvoiceExcel" asp-route-id="@Model.Order.OrderId">↓ Facture Excel</a><a class="button button-soft" asp-controller="Receipts" asp-action="InvoiceWord" asp-route-id="@Model.Order.OrderId">↓ Facture Word</a><a class="button button-primary" asp-controller="Receipts" asp-action="Ticket" asp-route-id="@Model.Order.OrderId" target="_blank">↓ Ticket PDF</a></div></div>
+<div class="order-summary-grid"><article class="summary-box"><span>Total du ticket</span><strong>@Fcfa(Model.Order.Total)</strong></article><article class="summary-box"><span>Déjà réglé</span><strong class="money-paid">@Fcfa(Model.Order.Paid)</strong></article><article class="summary-box summary-due"><span>Reste à payer</span><strong class="money-due">@Fcfa(Model.Order.Remaining)</strong></article></div>
+<section class="panel"><div class="panel-heading"><div><span class="eyebrow">VOS ARTICLES</span><h2>Avancement du traitement</h2></div></div><div class="item-list">
+@foreach(var item in Model.Items)
+{
+    <article class="item-card"><div class="item-card-main"><span class="item-icon">♧</span><div><strong>@item.CategoryName @if(item.IsExpress){<span class="express-pill">EXPRESS</span>}</strong><p>@(string.IsNullOrWhiteSpace(item.Description) ? "Article" : item.Description)</p><small>Retrait prévu @(item.ExpectedPickupAt?.ToString("dd/MM/yyyy") ?? "à confirmer")</small></div></div><div class="item-status-client"><span class="status-pill">@item.ItemStatus</span>@if(item.ItemStatus == "prêt"){<strong class="ready-note">À retirer</strong>}</div><div class="item-price"><span>@Fcfa(item.UnitPrice + item.ExpressFee)</span></div></article>
+}
+</div></section>
+<section class="panel"><div class="panel-heading"><div><span class="eyebrow">VOS RÈGLEMENTS</span><h2>Reçus de paiement</h2></div></div>
+@if(Model.Payments.Count == 0){<div class="empty-inline">Aucun paiement n’a encore été enregistré.</div>}
+else{<div class="table-scroll"><table><thead><tr><th>Reçu</th><th>Date</th><th>Moyen</th><th>Montant</th><th></th></tr></thead><tbody>@foreach(var payment in Model.Payments){<tr><td>@payment.ReceiptNo</td><td>@payment.PaymentAt.ToString("dd/MM/yyyy HH:mm")</td><td>@payment.PaymentMethod</td><td>@Fcfa(payment.Amount)</td><td><a class="text-link" asp-controller="Receipts" asp-action="Payment" asp-route-id="@payment.PaymentId" target="_blank">Télécharger PDF</a></td></tr>}</tbody></table></div>}
+</section>

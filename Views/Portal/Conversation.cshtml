@@ -1,0 +1,31 @@
+@model ClientConversationViewModel
+@{
+    ViewData["Title"] = "Messagerie";
+}
+<div class="page-heading"><div><span class="eyebrow">ESPACE CLIENT · MESSAGERIE</span><h1>Parler au pressing</h1><p>Vos messages restent disponibles dans votre espace client.</p></div><a class="button button-outline" asp-action="Index">← Mon espace</a></div>
+<section class="panel conversation-panel">
+    <div class="conversation-header"><div><span class="eyebrow">FRESH &amp; CARE</span><h2>Conversation privée</h2></div><span class="conversation-private">🔒 Visible uniquement par vous et le pressing</span></div>
+    @if (Model.Messages.Count == 0)
+    {
+        <div class="empty-state"><span>✉</span><strong>Commencez la conversation</strong><p>Posez une question sur vos vêtements, un ticket, un retrait ou votre règlement.</p></div>
+    }
+    else
+    {
+        <div class="message-thread" aria-live="polite">
+        @foreach (var message in Model.Messages)
+        {
+            var fromStaff = message.SenderRole == "staff";
+            <article class="conversation-message @(fromStaff ? "message-from-staff" : "message-from-client")">
+                <div class="conversation-message-meta"><strong>@(fromStaff ? "Fresh & Care" : "Vous")</strong><time>@message.SentAt.ToString("dd/MM/yyyy à HH:mm")</time></div>
+                <strong class="conversation-subject">@message.Subject</strong>
+                <p>@message.Body</p>
+            </article>
+        }
+        </div>
+    }
+    <form asp-action="Message" method="post" class="conversation-reply-form">
+        <input type="hidden" name="Subject" value="Échange avec Fresh &amp; Care"/>
+        <div class="field"><label for="Body">Votre message</label><textarea id="Body" name="Body" maxlength="4000" rows="5" placeholder="Écrivez au pressing…" required></textarea></div>
+        <div class="conversation-compose-footer"><span class="field-hint">Ne partagez pas de code confidentiel dans cette conversation.</span><button class="button button-primary" type="submit">Envoyer au pressing →</button></div>
+    </form>
+</section>

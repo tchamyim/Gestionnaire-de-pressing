@@ -1,0 +1,59 @@
+@model ClientConversationViewModel
+@{
+    ViewData["Title"] = "Conversation client";
+    var waPhone = string.IsNullOrWhiteSpace(Model.Client.WhatsApp) ? Model.Client.Phone : Model.Client.WhatsApp;
+    var waLink = ClientCommunicationLinks.WhatsApp(waPhone, $"Bonjour {Model.Client.FirstName}, nous vous écrivons au sujet de votre pressing Fresh & Care. À bientôt !");
+    var hasEmail = !string.IsNullOrWhiteSpace(Model.Client.Email);
+}
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">MESSAGERIE PRIVÉE · GÉRANT</span>
+        <h1>@Model.Client.FirstName @Model.Client.LastName</h1>
+        <p>@Model.Client.Phone · @(hasEmail ? Model.Client.Email : "E-mail non renseigné")</p>
+    </div>
+    <div class="heading-actions">
+        <a class="button button-outline" asp-action="Index">← Boîte de messagerie</a>
+        <a class="button button-soft" asp-controller="Clients" asp-action="Details" asp-route-id="@Model.Client.ClientId">Fiche client</a>
+        @if (waLink is not null){<a class="button button-whatsapp" href="@waLink" target="_blank" rel="noopener">WhatsApp</a>}
+    </div>
+</div>
+<section class="panel conversation-panel">
+    <div class="conversation-header">
+        <div><span class="eyebrow">HISTORIQUE DES ÉCHANGES</span><h2>Conversation avec le client</h2></div>
+        <span class="conversation-private">🔒 Visible uniquement par le pressing et ce client</span>
+    </div>
+    @if (Model.Messages.Count == 0)
+    {
+        <div class="empty-state"><span>✉</span><strong>Aucun échange pour l’instant</strong><p>Envoyez un premier message au client ; il le retrouvera dans son espace client.</p></div>
+    }
+    else
+    {
+        <div class="message-thread" id="messageThread" aria-live="polite">
+        @foreach (var message in Model.Messages)
+        {
+            var fromStaff = message.SenderRole == "staff";
+            <article class="conversation-message @(fromStaff ? "message-from-staff" : "message-from-client")">
+                <div class="conversation-message-meta"><strong>@message.SenderName</strong><time>@message.SentAt.ToString("dd/MM/yyyy à HH:mm")</time></div>
+                <strong class="conversation-subject">@message.Subject</strong>
+                <p>@message.Body</p>
+            </article>
+        }
+        </div>
+    }
+    <form asp-action="Reply" asp-route-clientId="@Model.Client.ClientId" method="post" class="conversation-reply-form">
+        <div class="field"><label for="Subject">Objet</label><input id="Subject" name="Subject" maxlength="160" value="Échange avec Fresh &amp; Care" required /></div>
+        <div class="field"><label for="Body">Votre réponse</label><textarea id="Body" name="Body" maxlength="4000" rows="4" placeholder="Écrivez votre message au client…" required></textarea></div>
+        @if (hasEmail)
+        {
+            <label class="active-check"><input type="checkbox" name="sendEmailCopy" value="true" /><span>Envoyer également une copie par e-mail à <strong>@Model.Client.Email</strong></span></label>
+        }
+        <div class="conversation-compose-footer">
+            <span class="field-hint">Le client verra votre réponse instantanément dans son espace client.</span>
+            <button class="button button-primary" type="submit">Envoyer au client →</button>
+        </div>
+    </form>
+</section>
+<script>
+    var thread = document.getElementById('messageThread');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+</script>

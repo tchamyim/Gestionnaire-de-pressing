@@ -1,0 +1,52 @@
+@model InventoryViewModel
+@{
+    ViewData["Title"] = "Consommables";
+}
+<div class="page-heading"><div><span class="eyebrow">GESTION DU PRESSING</span><h1>Stock &amp; consommables</h1><p>Suivez lessive, détachant, cintres, housses et fournitures utilisées au quotidien.</p></div></div>
+<div class="inventory-summary">
+    <article class="summary-box"><span>Références actives</span><strong>@Model.Items.Count</strong></article>
+    <article class="summary-box"><span>À réapprovisionner</span><strong class="@(Model.LowStockCount > 0 ? "money-due" : "money-paid")">@Model.LowStockCount</strong></article>
+    <article class="summary-box"><span>Valeur estimée du stock</span><strong>@Fcfa(Model.StockValue)</strong></article>
+</div>
+<section class="panel inventory-panel">
+    <div class="panel-heading"><div><span class="eyebrow">NOUVELLE RÉFÉRENCE</span><h2>Ajouter un consommable</h2></div></div>
+    <form asp-action="Create" method="post" class="inventory-create-form">
+        <div class="field"><label for="Name">Produit</label><input id="Name" name="Name" maxlength="100" placeholder="Lessive liquide, cintres…" required/></div>
+        <div class="field"><label for="Unit">Unité</label><input id="Unit" name="Unit" maxlength="24" value="unité" placeholder="litre, bidon, paquet" required/></div>
+        <div class="field"><label for="InitialQuantity">Stock initial</label><input id="InitialQuantity" name="InitialQuantity" type="number" min="0" step="0.001" value="0" required/></div>
+        <div class="field"><label for="ReorderAt">Alerte sous</label><input id="ReorderAt" name="ReorderAt" type="number" min="0" step="0.001" value="1" required/></div>
+        <div class="field"><label for="UnitCost">Coût unitaire (FCFA)</label><input id="UnitCost" name="UnitCost" type="number" min="0" step="1" value="0" required/></div>
+        <button class="button button-primary" type="submit">＋ Ajouter le stock</button>
+    </form>
+</section>
+<section class="panel inventory-panel">
+    <div class="panel-heading"><div><span class="eyebrow">SUIVI DES CONSOMMABLES</span><h2>Inventaire</h2></div><span class="count-pill">@Model.Items.Count</span></div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty-state"><span>▦</span><strong>Le stock est encore vide</strong><p>Ajoutez vos consommables au-dessus pour commencer le suivi et recevoir les alertes de seuil.</p></div>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="inventory-table"><thead><tr><th>Produit</th><th>Stock actuel</th><th>Seuil d’alerte</th><th>Coût unitaire</th><th>Valeur</th><th>Dernière mise à jour</th><th>Mouvement</th></tr></thead><tbody>
+        @foreach (var item in Model.Items)
+        {
+            <tr class="@(item.IsLow ? "inventory-low-row" : "")">
+                <td><strong>@item.Name</strong><small class="contact-subline">Unité : @item.Unit @if(item.IsLow){<span class="inventory-low-label">À réapprovisionner</span>}</small></td>
+                <td><strong class="@(item.IsLow ? "money-due" : "")">@item.QuantityOnHand.ToString("0.###", CultureInfo.GetCultureInfo("fr-FR")) @item.Unit</strong></td>
+                <td>@item.ReorderAt.ToString("0.###", CultureInfo.GetCultureInfo("fr-FR")) @item.Unit</td>
+                <td>@Fcfa(item.UnitCost)</td>
+                <td>@Fcfa(item.StockValue)</td>
+                <td>@item.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                <td><form asp-action="Movement" method="post" class="inventory-movement-form">
+                    <input type="hidden" name="id" value="@item.InventoryItemId"/>
+                    <select name="Direction" aria-label="Type de mouvement"><option value="entrée">Entrée</option><option value="sortie">Consommation</option></select>
+                    <input name="Quantity" type="number" min="0.001" step="0.001" placeholder="Quantité" aria-label="Quantité" required/>
+                    <input name="UnitCost" type="number" min="0" step="1" placeholder="Coût (entrée)" aria-label="Coût unitaire à l’achat"/>
+                    <input name="Reason" maxlength="150" placeholder="Motif" aria-label="Motif du mouvement" required/>
+                    <button class="button button-soft button-small" type="submit">Enregistrer</button>
+                </form></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>

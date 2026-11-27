@@ -1,0 +1,17 @@
+@model PortalHomeViewModel
+@{
+    ViewData["Title"] = "Mon espace client";
+}
+<div class="portal-welcome"><div><span class="eyebrow">ESPACE CLIENT · YAOUNDÉ</span><h1>Bonjour @Model.Client.FirstName 👋</h1><p>Retrouvez ici l’état de vos articles et vos tickets de pressing.</p></div><div class="portal-balance"><span>Montant restant à payer</span><strong>@Fcfa(Model.Balance)</strong></div></div>
+<a class="portal-message-banner" asp-action="Conversation"><span class="attention-icon">✉</span><span><strong>Contacter Fresh &amp; Care</strong><small>Posez une question sur votre ticket ou votre règlement.</small></span>@if(Model.UnreadMessages > 0){<b>@Model.UnreadMessages nouveau(x)</b>}else{<b>Écrire →</b>}</a>
+<div class="portal-stats"><div><span>Tickets enregistrés</span><strong>@Model.Orders.Count</strong></div><div><span>Articles prêts</span><strong>@Model.Orders.Sum(o => o.ReadyItems)</strong></div><div><span>En traitement</span><strong>@Model.Orders.Count(o => o.OrderStatus != "terminée")</strong></div></div>
+<section class="panel"><div class="panel-heading"><div><span class="eyebrow">VOTRE HISTORIQUE</span><h2>Dépôts &amp; retraits</h2></div></div>
+    <div class="table-scroll"><table><thead><tr><th>Ticket</th><th>Date de dépôt</th><th>Statut</th><th>Total</th><th>Reste à payer</th><th></th></tr></thead><tbody>
+    @foreach (var order in Model.Orders)
+    {
+        <tr><td><a class="ticket-link" asp-action="Order" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.CreatedAt.ToString("dd/MM/yyyy")</td><td><span class="status-pill">@order.OrderStatus</span>@if(order.ReadyItems > 0){<small class="ready-note">@order.ReadyItems article(s) prêt(s)</small>}</td><td>@Fcfa(order.Total)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td><td><a class="button button-soft button-small" asp-action="Order" asp-route-id="@order.OrderId">Détails</a></td></tr>
+    }
+    @if(Model.Orders.Count == 0){<tr><td colspan="6"><div class="empty-inline">Vos prochains tickets apparaîtront ici.</div></td></tr>}
+    </tbody></table></div>
+</section>
+<section class="panel pin-change"><div class="panel-heading"><div><span class="eyebrow">SÉCURITÉ</span><h2>Modifier mon code client</h2></div></div><form asp-action="ChangePin" method="post" class="pin-form"><div class="field"><label>Code actuel</label><input name="CurrentPin" type="password" required/></div><div class="field"><label>Nouveau code (6 caractères minimum)</label><input name="NewPin" type="password" minlength="6" required/></div><button class="button button-outline" type="submit">Mettre à jour le code</button></form></section>

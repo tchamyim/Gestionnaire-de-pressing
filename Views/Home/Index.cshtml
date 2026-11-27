@@ -1,0 +1,37 @@
+@{
+    ViewData["Title"] = "Bienvenue";
+}
+
+<div class="auth-card role-choice landing-card">
+    <div class="landing-hero">
+        <div class="landing-logo-wrap">
+            <img class="landing-logo" src="~/img/fresh-care-logo.png" alt="Fresh &amp; Care Pressing" />
+        </div>
+        <span class="landing-badge">PRESSING · BLANCHISSERIE · ENTRETIEN TEXTILE</span>
+        <h1 class="landing-slogan">Le soin du linge,<br><em>en toute simplicité.</em></h1>
+        <p class="landing-sub">Bienvenue chez Fresh &amp; Care — votre partenaire de confiance pour un linge impeccable.</p>
+
+    </div>
+
+    <div class="role-choice-grid">
+        <a class="role-choice-card-v2 role-manager-v2" asp-controller="Account" asp-action="@ViewBag.ManagerAccessAction">
+            <span class="role-icon-v2">🔑</span>
+            <span>
+                <strong>Espace gérant</strong>
+                <small>Clients, dépôts, atelier, caisse et factures</small>
+            </span>
+            <span class="role-arrow-v2">›</span>
+        </a>
+        <a class="role-choice-card-v2 role-client-v2" asp-controller="Portal" asp-action="Login">
+            <span class="role-icon-v2">👔</span>
+            <span>
+                <strong>Espace client</strong>
+                <small>Suivi des tickets, vêtements prêts et messagerie</small>
+            </span>
+            <span class="role-arrow-v2">›</span>
+        </a>
+    </div>
+
+    <p class="auth-help">Les deux espaces partagent la même base de données en temps réel.</p>
+</div>
+

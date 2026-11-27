@@ -1,0 +1,31 @@
+@model ClientRecord
+@{
+    ViewData["Title"] = "Fiche client";
+    var orders = ViewBag.Orders as List<OrderSummary> ?? [];
+    var history = ViewBag.History as List<ActivityHistoryEntry> ?? [];
+    var latestOrder = orders.FirstOrDefault();
+    var readyOrder = orders.FirstOrDefault(order => order.ReadyItems > 0);
+    var canUseWhatsApp = ClientCommunicationLinks.WhatsApp(string.IsNullOrWhiteSpace(Model.WhatsApp) ? Model.Phone : Model.WhatsApp, "Bonjour " + Model.FirstName + ", Fresh & Care vous contacte.") is not null;
+}
+<div class="page-heading"><div><span class="eyebrow">DOSSIER CLIENT</span><h1>@Model.FirstName @Model.LastName</h1><p>Client depuis le @Model.CreatedAt.ToString("dd MMMM yyyy", CultureInfo.GetCultureInfo("fr-FR"))</p></div><div class="heading-actions"><a class="button button-outline" asp-action="Edit" asp-route-id="@Model.ClientId">Modifier la fiche</a>@if(latestOrder is not null && canUseWhatsApp){<a class="button button-whatsapp" asp-controller="Communications" asp-action="WhatsApp" asp-route-id="@latestOrder.OrderId">WhatsApp</a>}@if(readyOrder is not null && !string.IsNullOrWhiteSpace(Model.Email)){<a class="button button-primary" asp-controller="Communications" asp-action="Compose" asp-route-id="@readyOrder.OrderId">✉ Prévenir par e-mail</a>}<a class="button button-primary" asp-controller="Orders" asp-action="Create">＋ Nouveau dépôt</a></div></div>
+@if (ViewBag.PortalPin is string pin)
+{
+    <div class="pin-banner"><div><strong>Code d’accès client généré</strong><p>Remettez ce code au client de manière privée. Il ne sera plus affiché après cette page.</p></div><code>@pin</code></div>
+}
+<div class="detail-grid">
+    <section class="panel profile-panel"><div class="client-profile"><span class="client-avatar client-avatar-large">@Model.FirstName.Substring(0,1).ToUpperInvariant()</span><div><h2>@Model.FirstName @Model.LastName</h2><span class="muted">Fiche client #@Model.ClientId</span></div></div><div class="profile-facts"><div><small>TÉLÉPHONE</small><strong>@Model.Phone</strong></div><div><small>WHATSAPP</small><strong>@(string.IsNullOrWhiteSpace(Model.WhatsApp) ? "—" : Model.WhatsApp)</strong></div><div><small>E-MAIL</small><strong>@(string.IsNullOrWhiteSpace(Model.Email) ? "—" : Model.Email)</strong></div><div><small>SOLDE À PAYER</small><strong class="@(Model.Balance > 0 ? "money-due" : "money-paid")">@Fcfa(Model.Balance)</strong></div></div><form asp-action="ResetPin" method="post" class="reset-pin-form"><input type="hidden" name="id" value="@Model.ClientId"/><button class="text-link" type="submit">Générer un nouveau code client</button></form></section>
+    <section class="panel"><div class="panel-heading"><div><span class="eyebrow">SUIVI</span><h2>Historique des tickets</h2></div><span class="count-pill">@orders.Count</span></div><div class="table-scroll"><table><thead><tr><th>Ticket</th><th>Date</th><th>Statut</th><th>Total</th><th>Reste dû</th><th></th></tr></thead><tbody>
+    @foreach (var order in orders)
+    {
+        <tr><td><a class="ticket-link" asp-controller="Orders" asp-action="Details" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.CreatedAt.ToString("dd/MM/yy")</td><td><span class="status-pill">@order.OrderStatus</span></td><td>@Fcfa(order.Total)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td><td><a class="icon-link" asp-controller="Orders" asp-action="Details" asp-route-id="@order.OrderId">→</a></td></tr>
+    }
+    @if (orders.Count == 0) { <tr><td colspan="6"><div class="empty-inline">Aucun dépôt enregistré pour ce client.</div></td></tr> }
+    </tbody></table></div></section>
+</div>
+<section class="panel history-panel"><div class="panel-heading"><div><span class="eyebrow">JOURNAL CLIENT</span><h2>Dernières opérations</h2></div></div><div class="timeline">
+@foreach (var evt in history)
+{
+    <div class="timeline-item"><span class="timeline-dot"></span><div><strong>@evt.EventType</strong><p>@evt.Details</p></div><time>@evt.EventAt.ToString("dd/MM/yyyy HH:mm")</time></div>
+}
+@if (history.Count == 0) { <div class="empty-inline">Aucune opération pour l’instant.</div> }
+</div></section>

@@ -1,0 +1,11 @@
+@model PortalLoginInput
+@{
+    ViewData["Title"] = "Connexion client";
+}
+<div class="auth-card"><div class="auth-emblem">♧</div><span class="eyebrow">VOTRE ESPACE CLIENT</span><h1>Suivez votre linge.</h1><p class="auth-subtitle">Consultez vos tickets, vos articles prêts et votre solde.</p>
+<form asp-action="Login" method="post" class="auth-form">
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="field"><label asp-for="Phone">Numéro de téléphone</label><input asp-for="Phone" autocomplete="tel" placeholder="Le numéro donné au pressing"/></div>
+    <div class="field"><label asp-for="Pin">Code client</label><input asp-for="Pin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Code remis par le pressing"/></div>
+    <button class="button button-primary button-full" type="submit">Se connecter <span>→</span></button>
+</form><p class="auth-help">Vous n’avez pas encore de code ? Demandez-le au pressing lors de votre prochain passage.</p><div class="auth-divider"><span>GESTIONNAIRE ?</span></div><a class="portal-login-link" asp-controller="Account" asp-action="Login">Connexion de l’équipe <span>→</span></a></div>

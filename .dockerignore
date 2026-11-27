@@ -1,0 +1,16 @@
+.git
+.venv
+bin
+obj
+release
+installer/payload
+tmp
+Pressings.Desktop/bin
+Pressings.Desktop/obj
+**/WebView2
+appsettings.Local.json
+*.accdb
+**/*.accdb
+*.log
+*.user
+*.suo

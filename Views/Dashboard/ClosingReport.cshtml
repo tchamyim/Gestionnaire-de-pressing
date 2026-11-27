@@ -1,0 +1,36 @@
+@model DailyClosingReport
+@{
+    ViewData["Title"] = "Clôture de caisse (Rapport Z)";
+}
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">FINANCES &amp; TRÉSORERIE</span>
+        <h1>Clôture journalière · @Model.Date.ToString("dd/MM/yyyy")</h1>
+        <p>Récapitulatif détaillé des encaissements et mouvements de caisse du jour.</p>
+    </div>
+    <div class="heading-actions">
+        <form method="get" asp-action="ClosingReport" class="closing-date-form">
+            <input type="date" name="date" value="@Model.Date.ToString("yyyy-MM-dd")" />
+            <button type="submit" class="button button-outline button-small">Changer de date</button>
+        </form>
+        <button type="button" class="button button-primary" onclick="window.print()">🖨 Imprimer le Rapport Z</button>
+        <a class="button button-soft" asp-action="Index">← Tableau de bord</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <article class="stat-card"><div class="stat-icon green">💵</div><div><span>Espèces encaissées</span><strong>@Fcfa(Model.CashPayments)</strong><small>impacte le tiroir espèces</small></div></article>
+    <article class="stat-card"><div class="stat-icon gold">📱</div><div><span>Mobile Money</span><strong>@Fcfa(Model.MobileMoneyPayments)</strong><small>MTN &amp; Orange Money</small></div></article>
+    <article class="stat-card"><div class="stat-icon blue">💳</div><div><span>Carte &amp; Virement</span><strong>@Fcfa(Model.CardAndTransferPayments)</strong><small>règlements bancaires</small></div></article>
+    <article class="stat-card stat-emphasis"><div class="stat-icon navy">◉</div><div><span>Total encaissé</span><strong>@Fcfa(Model.TotalPayments)</strong><small>@Model.PaymentCount paiement(s) ce jour</small></div></article>
+</div>
+
+<section class="panel">
+    <div class="panel-heading"><div><span class="eyebrow">TIROIR ESPÈCES</span><h2>Contrôle de caisse</h2></div></div>
+    <div class="closing-grid">
+        <div class="closing-row"><span>Encaissements espèces du jour</span><strong>+ @Fcfa(Model.CashPayments)</strong></div>
+        <div class="closing-row"><span>Entrées manuelles de caisse</span><strong>+ @Fcfa(Model.ManualCashIn)</strong></div>
+        <div class="closing-row"><span>Sorties manuelles de caisse (dépenses)</span><strong class="money-due">- @Fcfa(Model.ManualCashOut)</strong></div>
+        <div class="closing-row closing-total"><span>Solde espèces théorique actuel en caisse</span><strong>@Fcfa(Model.TheoreticalTillBalance)</strong></div>
+    </div>
+</section>
