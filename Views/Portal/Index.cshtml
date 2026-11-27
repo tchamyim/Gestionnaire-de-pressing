@@ -3,13 +3,46 @@
     ViewData["Title"] = "Mon espace client";
 }
 <div class="portal-welcome"><div><span class="eyebrow">ESPACE CLIENT · YAOUNDÉ</span><h1>Bonjour @Model.Client.FirstName 👋</h1><p>Retrouvez ici l’état de vos articles et vos tickets de pressing.</p></div><div class="portal-balance"><span>Montant restant à payer</span><strong>@Fcfa(Model.Balance)</strong></div></div>
+
+<section class="voice-assistant" data-voice-assistant
+         data-first-name="@Model.Client.FirstName"
+         data-ticket-count="@Model.Orders.Count"
+         data-ready-count="@Model.Orders.Sum(o => o.ReadyItems)"
+         data-active-count="@Model.Orders.Count(o => o.OrderStatus != "terminée")"
+         data-balance="@Fcfa(Model.Balance)">
+    <div class="voice-assistant-mark" aria-hidden="true"><span>N</span><i></i></div>
+    <div class="voice-assistant-content">
+        <div class="voice-assistant-heading">
+            <div><span class="eyebrow">VOTRE HÔTESSE VOCALE</span><h2>Naya</h2></div>
+            <span class="voice-ready"><i></i> À votre écoute</span>
+        </div>
+        <p class="voice-response" data-voice-response aria-live="polite">Bonjour @Model.Client.FirstName, bienvenue dans votre espace Fresh &amp; Care. Je peux vous aider à suivre vos tickets et vos articles prêts.</p>
+        <div class="voice-forms">
+            <form class="voice-question-form" data-voice-question-form>
+                <label for="voiceQuestion">Posez une question</label>
+                <div class="voice-input-row"><input id="voiceQuestion" type="text" maxlength="180" autocomplete="off" placeholder="Ex. Mon ticket est-il prêt ?" /><button class="button button-primary button-small" type="submit">Demander</button></div>
+            </form>
+            <form class="voice-say-form" data-voice-say-form>
+                <label for="voicePhrase">Ou faites prononcer une phrase</label>
+                <div class="voice-input-row"><input id="voicePhrase" type="text" maxlength="240" autocomplete="off" placeholder="Écrivez une phrase à écouter…" /><button class="button button-outline button-small" type="submit">Prononcer</button></div>
+            </form>
+        </div>
+        <div class="voice-actions">
+            <button class="button button-soft button-small" type="button" data-voice-welcome>🔊 Écouter mon accueil</button>
+            <button class="voice-stop" type="button" data-voice-stop>Arrêter la voix</button>
+            <a asp-action="Conversation">Parler au pressing →</a>
+        </div>
+        <small class="voice-privacy">Naya utilise les informations de cet espace. La voix est générée sur cet appareil.</small>
+    </div>
+</section>
+
 <a class="portal-message-banner" asp-action="Conversation"><span class="attention-icon">✉</span><span><strong>Contacter Fresh &amp; Care</strong><small>Posez une question sur votre ticket ou votre règlement.</small></span>@if(Model.UnreadMessages > 0){<b>@Model.UnreadMessages nouveau(x)</b>}else{<b>Écrire →</b>}</a>
 <div class="portal-stats"><div><span>Tickets enregistrés</span><strong>@Model.Orders.Count</strong></div><div><span>Articles prêts</span><strong>@Model.Orders.Sum(o => o.ReadyItems)</strong></div><div><span>En traitement</span><strong>@Model.Orders.Count(o => o.OrderStatus != "terminée")</strong></div></div>
 <section class="panel"><div class="panel-heading"><div><span class="eyebrow">VOTRE HISTORIQUE</span><h2>Dépôts &amp; retraits</h2></div></div>
     <div class="table-scroll"><table><thead><tr><th>Ticket</th><th>Date de dépôt</th><th>Statut</th><th>Total</th><th>Reste à payer</th><th></th></tr></thead><tbody>
     @foreach (var order in Model.Orders)
     {
-        <tr><td><a class="ticket-link" asp-action="Order" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.CreatedAt.ToString("dd/MM/yyyy")</td><td><span class="status-pill">@order.OrderStatus</span>@if(order.ReadyItems > 0){<small class="ready-note">@order.ReadyItems article(s) prêt(s)</small>}</td><td>@Fcfa(order.Total)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td><td><a class="button button-soft button-small" asp-action="Order" asp-route-id="@order.OrderId">Détails</a></td></tr>
+        <tr data-voice-ticket="@order.TicketNo" data-voice-status="@order.OrderStatus" data-voice-ready-items="@order.ReadyItems" data-voice-remaining="@Fcfa(order.Remaining)"><td><a class="ticket-link" asp-action="Order" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.CreatedAt.ToString("dd/MM/yyyy")</td><td><span class="status-pill">@order.OrderStatus</span>@if(order.ReadyItems > 0){<small class="ready-note">@order.ReadyItems article(s) prêt(s)</small>}</td><td>@Fcfa(order.Total)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td><td><a class="button button-soft button-small" asp-action="Order" asp-route-id="@order.OrderId">Détails</a></td></tr>
     }
     @if(Model.Orders.Count == 0){<tr><td colspan="6"><div class="empty-inline">Vos prochains tickets apparaîtront ici.</div></td></tr>}
     </tbody></table></div>

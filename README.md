@@ -20,6 +20,7 @@ L’application crée les tables et la grille de démarrage dans `Gestion pressi
 - Paiements partiels, impayés par client, mouvements de caisse et solde espèces.
 - Alertes du tableau de bord pour les articles dont la date de retrait est dépassée.
 - Espace client : connexion par numéro de téléphone et code PIN à usage privé, historique, état « prêt », montant dû et reçus PDF/Excel/Word. Excel et Word s’ouvrent automatiquement après génération dans l'application Windows.
+- Naya, hôtesse vocale de l’espace client : accueil personnalisé, réponses contextualisées sur les tickets, les articles prêts et le solde, et prononciation d’une phrase saisie. La voix française fonctionne sur l’appareil, sans envoyer les questions à un service externe.
 - Boîte de réception interne : messages échangés entre les clients et le pressing, suivi des non-lus, recherche par client/téléphone/contenu et filtre des conversations non lues.
 
 ## Première utilisation

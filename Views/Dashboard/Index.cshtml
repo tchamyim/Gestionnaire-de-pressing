@@ -11,6 +11,31 @@
     <article class="stat-card stat-emphasis"><div class="stat-icon navy">◉</div><div><span>Impayés clients</span><strong>@Fcfa(Model.Outstanding)</strong><small>solde restant à recouvrer</small></div></article>
 </div>
 
+<section class="workflow-band" aria-labelledby="workflow-title">
+    <div class="workflow-intro">
+        <span class="eyebrow">LE PARCOURS FRESH &amp; CARE</span>
+        <h2 id="workflow-title">Du dépôt à la remise, tout est suivi.</h2>
+        <p>Les étapes clés du service sont réunies dans un même espace.</p>
+    </div>
+    <div class="workflow-steps">
+        <a class="workflow-step" asp-controller="Orders" asp-action="Create">
+            <span class="workflow-number">01</span>
+            <span><strong>Enregistrer</strong><small>Créer un dépôt et son ticket</small></span>
+            <span class="workflow-arrow" aria-hidden="true">↗</span>
+        </a>
+        <a class="workflow-step" asp-controller="Orders" asp-action="Index">
+            <span class="workflow-number">02</span>
+            <span><strong>Suivre l’atelier</strong><small>Mettre à jour chaque article</small></span>
+            <span class="workflow-arrow" aria-hidden="true">↗</span>
+        </a>
+        <a class="workflow-step" asp-controller="Communications" asp-action="Index">
+            <span class="workflow-number">03</span>
+            <span><strong>Informer le client</strong><small>Répondre depuis la messagerie</small></span>
+            <span class="workflow-arrow" aria-hidden="true">↗</span>
+        </a>
+    </div>
+</section>
+
 <div class="dashboard-grid">
     <section class="panel panel-wide">
         <div class="panel-heading"><div><span class="eyebrow">SUIVI DES DÉPÔTS</span><h2>Tickets récents</h2></div><a class="text-link" asp-controller="Orders" asp-action="Index">Voir tous les tickets →</a></div>
