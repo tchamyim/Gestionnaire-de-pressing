@@ -99,7 +99,17 @@ public sealed class ClientCommunicationService(IConfiguration configuration, Acc
 #pragma warning restore SYSLIB0014
         if (!string.IsNullOrWhiteSpace(settings.User))
             smtp.Credentials = new NetworkCredential(settings.User, NormalizePassword(settings));
-        await smtp.SendMailAsync(message, cancellationToken);
+        try
+        {
+            await smtp.SendMailAsync(message, cancellationToken);
+        }
+        catch (SmtpException ex) when (
+            string.Equals(settings.Host?.Trim(), "smtp.gmail.com", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(settings.User))
+        {
+            throw new InvalidOperationException(
+                "Gmail a refusé l’authentification SMTP. Remplacez la clé enregistrée par une clé d’application Google active de 16 caractères.", ex);
+        }
     }
 
     private static string? GetConfigurationError(EmailSettingsInput settings)
