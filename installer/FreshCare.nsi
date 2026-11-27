@@ -3,7 +3,7 @@ Unicode true
 !include "LogicLib.nsh"
 
 !define APP_NAME "Fresh & Care"
-!define APP_VERSION "1.0.2"
+!define APP_VERSION "1.0.3"
 !define APP_PUBLISHER "Fresh & Care"
 !define APP_EXE "Pressings.Desktop.exe"
 !define APP_DIR "payload"
@@ -21,9 +21,9 @@ ShowInstDetails show
 ShowUninstDetails show
 BrandingText "Fresh & Care"
 
-VIProductVersion "1.0.2.0"
+VIProductVersion "1.0.3.0"
 VIAddVersionKey "ProductName" "Fresh & Care"
-VIAddVersionKey "ProductVersion" "1.0.2"
+VIAddVersionKey "ProductVersion" "1.0.3"
 VIAddVersionKey "FileDescription" "Installation de Fresh & Care"
 VIAddVersionKey "CompanyName" "Fresh & Care"
 
