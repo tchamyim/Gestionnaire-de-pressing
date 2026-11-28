@@ -1,0 +1,14 @@
+@model DeliveryMissionInput
+@{
+    ViewData["Title"] = "Demander une collecte";
+    var clients = ViewBag.Clients as List<ClientRecord> ?? [];
+}
+<div class="page-heading"><div><span class="eyebrow">NOUVELLE MISSION</span><h1>Demander une collecte</h1><p>Le livreur verra uniquement les coordonnées nécessaires à sa mission.</p></div><a class="button button-outline" asp-action="Index">← Missions</a></div>
+<div class="form-layout"><section class="panel form-panel"><form asp-action="CreateCollection" method="post">
+    <div asp-validation-summary="All" class="validation-summary"></div>
+    <div class="field"><label asp-for="ClientId">Client</label><select asp-for="ClientId" required><option value="">Choisir un client…</option>@foreach (var client in clients){<option value="@client.ClientId">@client.FirstName @client.LastName · @client.Phone</option>}</select><span asp-validation-for="ClientId"></span></div>
+    <div class="field"><label asp-for="Address">Adresse de collecte</label><input asp-for="Address" maxlength="255" placeholder="Quartier, rue, repère…"/><span asp-validation-for="Address"></span></div>
+    <div class="field"><label asp-for="ScheduledAt">Date et heure souhaitées</label><input asp-for="ScheduledAt" type="datetime-local" value="@Model.ScheduledAt?.ToString("yyyy-MM-ddTHH:mm")"/></div>
+    <div class="field"><label asp-for="Notes">Consigne</label><textarea asp-for="Notes" rows="3" maxlength="255" placeholder="Appeler à l’arrivée, repère de la maison…"></textarea></div>
+    <div class="form-actions"><a class="button button-outline" asp-action="Index">Annuler</a><button class="button button-primary" type="submit">Enregistrer la collecte</button></div>
+</form></section></div>

@@ -4,6 +4,8 @@
     var clients = ViewBag.Clients as List<ClientRecord> ?? [];
     var tariffs = ViewBag.Tariffs as List<TariffCategory> ?? [];
     var defaultPickup = DateTime.Today.AddDays(2).ToString("yyyy-MM-dd");
+    var canSeeFinances = StaffPolicies.CanSeeFinances(User);
+    var canManageDiscounts = StaffPolicies.IsManagerOrAdmin(User);
 }
 <div class="page-heading">
     <div>
@@ -48,14 +50,23 @@
                     <div><span>Sous-total standard</span><strong id="posSubtotal">0 FCFA</strong></div>
                     <div><span>Supplément Express</span><strong id="posExpress">0 FCFA</strong></div>
                     <div class="pos-discount-row">
+                    @if (canManageDiscounts)
+                    {
                         <label for="DiscountAmount">Remise (FCFA)</label>
                         <input id="DiscountAmount" name="DiscountAmount" type="number" min="0" step="100" value="@Model.DiscountAmount" oninput="recalcPos()" />
+                    }
+                    else
+                    {
+                        <input id="DiscountAmount" name="DiscountAmount" type="hidden" value="0" />
+                    }
                     </div>
                     <div class="pos-grand-total">
                         <span>Total Net à payer</span>
                         <strong id="posNetTotal">0 FCFA</strong>
                     </div>
                 </div>
+                @if (canSeeFinances)
+                {
                 <div class="form-grid form-grid-compact" style="margin-top: 14px;">
                     <div class="field">
                         <label for="InitialPaymentAmount">Acompte versé (FCFA)</label>
@@ -81,6 +92,13 @@
                     <button type="button" class="button button-soft button-small" onclick="payPercent(1)">Tout régler (100%)</button>
                     <button type="button" class="button button-outline button-small" onclick="payPercent(0)">0</button>
                 </div>
+                }
+                else
+                {
+                    <input id="InitialPaymentAmount" name="InitialPaymentAmount" type="hidden" value="0" />
+                    <input id="InitialPaymentMethod" name="InitialPaymentMethod" type="hidden" value="Espèces" />
+                    <p class="field-hint">La caisse pourra encaisser l’acompte depuis le ticket après sa création.</p>
+                }
             </section>
         </div>
 

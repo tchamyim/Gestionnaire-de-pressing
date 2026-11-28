@@ -23,12 +23,25 @@ L’application crée les tables et la grille de démarrage dans `Gestion pressi
 - Naya, hôtesse vocale de l’espace client : accueil personnalisé, réponses contextualisées sur les tickets, les articles prêts et le solde, et prononciation d’une phrase saisie. Sa voix française ou anglaise est générée sur l’appareil, sans envoyer les questions à un service externe.
 - Sur l’accueil, Naya présente l’application à voix haute en français ou en anglais et termine par un remerciement au professeur. Son guide contextuel s’ouvre aussi sur les formulaires pour expliquer les champs, les étapes et leurs avantages. Le lancement de la visite se fait par le bouton **Démarrer la présentation**.
 - Boîte de réception interne : messages échangés entre les clients et le pressing, suivi des non-lus, recherche par client/téléphone/contenu et filtre des conversations non lues.
+- Comptes individuels par employé, rôles cumulables, désactivation des comptes et journal d’activité.
+- File atelier par rôle : lavage, repassage/finition et contrôle qualité, avec attribution des articles par le responsable.
+- Missions de collecte et de livraison attribuées à un livreur, avec compte rendu et preuve de remise facultative.
 
 ## Première utilisation
 
 Les catégories et montants chargés dans la grille sont des exemples de démarrage. Ajuster les prix et les majorations express depuis **Grille tarifaire** avant de facturer. À la création d’un client, l’application génère un PIN client et l’affiche une seule fois dans sa fiche ; le pressing le remet directement au client.
 
 Le total de caisse correspond aux espèces encaissées plus les entrées de caisse moins les sorties. Les paiements Mobile Money, Orange Money, carte ou virement réduisent l’impayé et apparaissent dans l’historique, mais ne modifient pas le solde espèces.
+
+## Comptes employés et flux de travail
+
+Le premier compte gestionnaire existant devient Administrateur général lors de la mise à jour de la base. Après connexion, ouvrez **Employés & rôles** pour créer un compte nominatif par personne, définir un mot de passe temporaire et choisir ses responsabilités. Une même personne peut cumuler plusieurs rôles. Seul l’administrateur général gère les comptes et les rôles ; le responsable supervise les opérations et attribue les tâches.
+
+Les rôles fournis sont : Administrateur général, Responsable, Accueil/Réception, Lavage, Repassage/Finition, Caisse/Comptabilité, Livreur, Contrôle qualité et Gestionnaire de stock. Les écrans et actions sont contrôlés par le serveur selon ces rôles.
+
+Le flux courant est : **fiche client → dépôt et ticket → lavage → repassage/finition → contrôle qualité → prêt → retrait ou livraison**. Le contrôle qualité peut valider un article ou le renvoyer en reprise. Les articles restent attribuables à un employé ; chaque changement important est inscrit dans le journal. Une collecte demandée depuis une fiche client rejoint la file des missions, puis le responsable l’attribue à un livreur.
+
+Le numéro client reste stable pour toutes ses visites. Chaque dépôt reçoit un nouveau numéro de ticket. Le personnel retrouve ainsi le même client depuis l’accueil, l’atelier ou la caisse sans réutiliser son ticket précédent.
 
 ## Utiliser le site sur le réseau local
 
@@ -38,6 +51,10 @@ Le total de caisse correspond aux espèces encaissées plus les entrées de cais
 4. Si Windows bloque la connexion, créer une règle entrante TCP pour le port `5085`, limitée au profil **Privé** du pare-feu Windows.
 
 La base Access reste sur le PC serveur ; les appareils utilisent le site et ne doivent pas ouvrir ni partager directement le fichier `.accdb`. Fermer l’application bureau avant de lancer le site pour éviter deux moteurs écrivant simultanément dans la même base. Cette configuration est réservée au réseau local de confiance : ne pas exposer le port `5085` sur Internet. Pour un accès depuis l’extérieur, utiliser un hébergement HTTPS avec MySQL/MariaDB, comme décrit ci-dessous.
+
+Le PC central doit rester allumé avec le site en cours d’exécution. Chaque employé ouvre l’adresse réseau dans son navigateur et se connecte avec son compte ; les changements sont alors visibles par les autres. L’application de bureau locale utilise sa propre base : ne la lancez pas en parallèle du serveur central.
+
+Pour utiliser la fenêtre Windows sur les postes employés tout en gardant une seule base, configurez Pressings.Desktop/appsettings.json sur chaque poste avec OnlineUrl pointant vers l’adresse privée du PC central, par exemple http://192.168.1.20:5085. Le PC central seul lance le site. L’application de bureau accepte les adresses HTTPS publiques et les adresses HTTP du réseau privé ; elle refuse une adresse HTTP publique.
 
 ## Base MySQL et mise en ligne
 

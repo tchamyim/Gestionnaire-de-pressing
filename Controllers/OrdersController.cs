@@ -6,19 +6,31 @@ using Pressings.Services;
 
 namespace Pressings.Controllers;
 
-[Authorize(Roles = "staff")]
+[Authorize(Policy = StaffPolicies.OrderRead)]
 public sealed class OrdersController(AccessRepository repository) : Controller
 {
-    public IActionResult Index(string? q) { ViewBag.Query = q ?? ""; return View(repository.SearchOrders(q)); }
+    public IActionResult Index(string? q)
+    {
+        ViewBag.Query = q ?? "";
+        var statuses = new List<string>();
+        if (!StaffPolicies.IsManagerOrAdmin(User) && !User.IsInRole("reception") && !User.IsInRole("cashier"))
+        {
+            if (User.IsInRole("washer")) statuses.AddRange(["déposé", "à reprendre", "lavage"]);
+            if (User.IsInRole("finisher")) statuses.AddRange(["en traitement", "repassage"]);
+            if (User.IsInRole("quality")) statuses.Add("contrôle qualité");
+        }
+        ViewBag.QueueLabel = statuses.Count == 0 ? "Tous les tickets" : "File de travail liée à vos rôles";
+        return View(repository.SearchOrders(q, statuses.Count == 0 ? null : statuses, statuses.Count == 0 ? null : CurrentUserId()));
+    }
 
-    [HttpGet]
+    [Authorize(Policy = StaffPolicies.OrderCreate), HttpGet]
     public IActionResult Create()
     {
         FillOrderForm();
         return View(new NewOrderInput { Items = [NewBlankItem()] });
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = StaffPolicies.OrderCreate), HttpPost, ValidateAntiForgeryToken]
     public IActionResult Create(NewOrderInput input, string? addLine)
     {
         if (string.Equals(addLine, "true", StringComparison.OrdinalIgnoreCase))
@@ -30,6 +42,8 @@ public sealed class OrdersController(AccessRepository repository) : Controller
         }
         var selectedItems = input.Items.Where(i => i.CategoryId > 0).ToList();
         if (selectedItems.Count == 0) ModelState.AddModelError(nameof(input.Items), "Ajoutez au moins un article.");
+        if (input.InitialPaymentAmount > 0 && !StaffPolicies.CanSeeFinances(User)) return Forbid();
+        if (input.DiscountAmount > 0 && !StaffPolicies.IsManagerOrAdmin(User)) return Forbid();
         if (!ModelState.IsValid) { FillOrderForm(); return View(input); }
         input.Items = selectedItems;
         try
@@ -49,12 +63,23 @@ public sealed class OrdersController(AccessRepository repository) : Controller
     public IActionResult Details(int id)
     {
         var order = repository.GetOrderDetails(id);
+        if (StaffPolicies.IsManagerOrAdmin(User))
+        {
+            ViewBag.WasherEmployees = repository.GetActiveEmployeesByRole("washer");
+            ViewBag.FinisherEmployees = repository.GetActiveEmployeesByRole("finisher");
+            ViewBag.QualityEmployees = repository.GetActiveEmployeesByRole("quality");
+        }
         return order is null ? NotFound() : View(order);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = StaffPolicies.OrderWorkflow), HttpPost, ValidateAntiForgeryToken]
     public IActionResult UpdateItem(int id, int itemId, UpdateItemInput input)
     {
+        var order = repository.GetOrderDetails(id);
+        var item = order?.Items.FirstOrDefault(candidate => candidate.ItemId == itemId);
+        if (item is null) return NotFound();
+        if (!StaffPolicies.IsManagerOrAdmin(User) && item.AssignedToUserId.HasValue && item.AssignedToUserId != CurrentUserId()) return Forbid();
+        if (!StaffPolicies.AllowedNextStatuses(User, item.ItemStatus).Contains(input.ItemStatus, StringComparer.Ordinal)) return Forbid();
         try
         {
             repository.UpdateItem(id, itemId, input, CurrentUserId());
@@ -64,7 +89,19 @@ public sealed class OrdersController(AccessRepository repository) : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = StaffPolicies.OrderBatchWorkflow), HttpPost, ValidateAntiForgeryToken]
+    public IActionResult AssignItem(int id, AssignOrderItemInput input)
+    {
+        try
+        {
+            repository.AssignOrderItem(id, input.ItemId, input.EmployeeId, CurrentUserId());
+            TempData["Success"] = "Tâche attribuée à l’employé de l’étape correspondante.";
+        }
+        catch (Exception ex) { TempData["Error"] = ex.Message; }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [Authorize(Policy = StaffPolicies.OrderBatchWorkflow), HttpPost, ValidateAntiForgeryToken]
     public IActionResult UpdateAllStatus(int id, string status, string? storageLocation)
     {
         try
@@ -76,14 +113,14 @@ public sealed class OrdersController(AccessRepository repository) : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    [HttpGet]
+    [Authorize(Policy = StaffPolicies.TicketPrinting), HttpGet]
     public IActionResult ThermalTicket(int id)
     {
         var order = repository.GetOrderDetails(id);
         return order is null ? NotFound() : View(order);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = StaffPolicies.Payments), HttpPost, ValidateAntiForgeryToken]
     public IActionResult Pay(int id, PaymentInput input)
     {
         if (!ModelState.IsValid)

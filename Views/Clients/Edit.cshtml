@@ -11,6 +11,7 @@
         <div class="field"><label asp-for="Phone">Téléphone</label><input asp-for="Phone"/></div>
         <div class="field"><label asp-for="WhatsApp">WhatsApp</label><input asp-for="WhatsApp"/></div>
         <div class="field field-wide"><label asp-for="Email">E-mail (facultatif)</label><input asp-for="Email"/><span asp-validation-for="Email"></span></div>
+        <div class="field field-wide"><label asp-for="Address">Adresse <small>(collecte / livraison)</small></label><input asp-for="Address" maxlength="255"/><span asp-validation-for="Address"></span></div>
     </div>
     <div class="form-actions"><a class="button button-outline" asp-action="Index">Annuler</a><button class="button button-primary" type="submit">Enregistrer les modifications</button></div>
 </form></section></div>

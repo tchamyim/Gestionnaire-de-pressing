@@ -29,9 +29,9 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
         if (input.Password.Length < minimumPasswordLength)
             ModelState.AddModelError(nameof(input.Password), $"Le mot de passe doit contenir au moins {minimumPasswordLength} caractères.");
         if (!ModelState.IsValid) return View(input);
-        var account = new AdminAccount { Email = input.Email.Trim().ToLowerInvariant() };
+        var account = new AdminAccount { Email = input.Email.Trim().ToLowerInvariant(), DisplayName = string.IsNullOrWhiteSpace(input.DisplayName) ? "Administrateur général" : input.DisplayName.Trim() };
         var hash = _hasher.HashPassword(account, input.Password);
-        repository.CreateAdmin(account.Email, hash);
+        repository.CreateAdmin(account.Email, account.DisplayName, hash);
         account = repository.FindAdmin(account.Email)!;
         await SignInStaff(account);
         TempData["Success"] = "Compte gestionnaire créé. Bienvenue dans Fresh & Care.";
@@ -42,7 +42,7 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
     public IActionResult Login()
     {
         if (User.Identity?.IsAuthenticated == true)
-            return RedirectToAction("Index", User.IsInRole("client") ? "Portal" : "Dashboard");
+            return RedirectToAction(User.IsInRole("client") ? "Index" : nameof(StaffHome), User.IsInRole("client") ? "Portal" : "Account");
         return repository.AdminCount() == 0
             ? RedirectToAction(nameof(Setup))
             : View(new AdminLoginInput { Email = configuration["InitialAdminEmail"] ?? "" });
@@ -55,7 +55,7 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
         // user in. In that case, return to the dashboard before validating the now-stale
         // anonymous form token instead of replacing the working page with HTTP 400.
         if (User.Identity?.IsAuthenticated == true)
-            return RedirectToAction("Index", User.IsInRole("client") ? "Portal" : "Dashboard");
+            return RedirectToAction(User.IsInRole("client") ? "Index" : nameof(StaffHome), User.IsInRole("client") ? "Portal" : "Account");
 
         try { await antiforgery.ValidateRequestAsync(HttpContext); }
         catch (AntiforgeryValidationException) { return BadRequest(); }
@@ -68,8 +68,18 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
             return View(input);
         }
         await SignInStaff(account);
-        return RedirectToAction("Index", "Dashboard");
+        return RedirectToAction(nameof(StaffHome));
     }
+
+    [Authorize(Policy = StaffPolicies.Employee), HttpGet]
+    public IActionResult StaffHome()
+    {
+        if (User.IsInRole("cashier") && !StaffPolicies.IsManagerOrAdmin(User)) return RedirectToAction("ClosingReport", "Dashboard");
+        return RedirectToAction("Index", StaffPolicies.LandingController(User));
+    }
+
+    [AllowAnonymous, HttpGet]
+    public IActionResult Denied() => View();
 
     [Authorize(Roles = "staff"), HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
@@ -80,14 +90,8 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
 
     private async Task SignInStaff(AdminAccount account)
     {
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, account.Id.ToString()),
-            new Claim(ClaimTypes.Name, account.Email),
-            new Claim(ClaimTypes.Email, account.Email),
-            new Claim(ClaimTypes.Role, "staff")
-        };
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+        account.RoleCodes = repository.GetAdminRoles(account.Id);
+        var principal = StaffClaimsFactory.Create(account, account.RoleCodes);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
     }
 }

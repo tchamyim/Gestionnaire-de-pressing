@@ -1,7 +1,11 @@
 @model OrderDetailViewModel
 @{
     ViewData["Title"] = Model.Order.TicketNo;
-    var statuses = new[] { "déposé", "en traitement", "prêt", "retiré" };
+    var canManage = StaffPolicies.IsManagerOrAdmin(User);
+    var canSeeFinances = StaffPolicies.CanSeeFinances(User);
+    var canSeePrices = canSeeFinances || User.IsInRole("reception");
+    var canPrintTicket = canSeeFinances || User.IsInRole("reception");
+    var canContactClients = canManage || User.IsInRole("reception");
     var lastPaymentId = int.TryParse(Convert.ToString(TempData["LastPaymentId"]), out var parsedPaymentId) ? parsedPaymentId : 0;
     var hasReadyArticle = Model.Items.Any(item => item.ItemStatus == "prêt");
     var whatsAppPhone = string.IsNullOrWhiteSpace(Model.Client.WhatsApp) ? Model.Client.Phone : Model.Client.WhatsApp;
@@ -14,14 +18,20 @@
         <p>@Model.Client.FirstName @Model.Client.LastName · @Model.Client.Phone · reçu le @Model.Order.CreatedAt.ToString("dd/MM/yyyy à HH:mm")</p>
     </div>
     <div class="heading-actions">
-        <a class="button button-outline" asp-controller="Clients" asp-action="Details" asp-route-id="@Model.Client.ClientId">Fiche client</a>
-        @if(canUseWhatsApp){<a class="button button-whatsapp" asp-controller="Communications" asp-action="WhatsApp" asp-route-id="@Model.Order.OrderId">WhatsApp</a>}
-        @if(hasReadyArticle){<a class="button button-primary" asp-controller="Communications" asp-action="Compose" asp-route-id="@Model.Order.OrderId">✉ Prévenir par e-mail</a>}
-        <a class="button button-primary" asp-action="ThermalTicket" asp-route-id="@Model.Order.OrderId" target="_blank">🖨 Ticket 80mm &amp; Étiquettes</a>
-        <a class="button button-soft" asp-controller="Receipts" asp-action="InvoicePdf" asp-route-id="@Model.Order.OrderId">↓ Facture PDF</a>
-        <a class="button button-soft" asp-controller="Receipts" asp-action="InvoiceExcel" asp-route-id="@Model.Order.OrderId">↓ Excel</a>
-        <a class="button button-soft" asp-controller="Receipts" asp-action="InvoiceWord" asp-route-id="@Model.Order.OrderId">↓ Word</a>
-        <a class="button button-outline" asp-controller="Receipts" asp-action="Ticket" asp-route-id="@Model.Order.OrderId" target="_blank">↓ Ticket PDF</a>
+        @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception")) { <a class="button button-outline" asp-controller="Clients" asp-action="Details" asp-route-id="@Model.Client.ClientId">Fiche client</a> }
+        @if(canContactClients && canUseWhatsApp){<a class="button button-whatsapp" asp-controller="Communications" asp-action="WhatsApp" asp-route-id="@Model.Order.OrderId">WhatsApp</a>}
+        @if(canContactClients && hasReadyArticle){<a class="button button-primary" asp-controller="Communications" asp-action="Compose" asp-route-id="@Model.Order.OrderId">✉ Prévenir par e-mail</a>}
+        @if(canPrintTicket)
+        {
+            <a class="button button-primary" asp-action="ThermalTicket" asp-route-id="@Model.Order.OrderId" target="_blank">🖨 Ticket 80mm &amp; Étiquettes</a>
+            <a class="button button-outline" asp-controller="Receipts" asp-action="Ticket" asp-route-id="@Model.Order.OrderId" target="_blank">↓ Ticket PDF</a>
+        }
+        @if(canSeeFinances)
+        {
+            <a class="button button-soft" asp-controller="Receipts" asp-action="InvoicePdf" asp-route-id="@Model.Order.OrderId">↓ Facture PDF</a>
+            <a class="button button-soft" asp-controller="Receipts" asp-action="InvoiceExcel" asp-route-id="@Model.Order.OrderId">↓ Excel</a>
+            <a class="button button-soft" asp-controller="Receipts" asp-action="InvoiceWord" asp-route-id="@Model.Order.OrderId">↓ Word</a>
+        }
     </div>
 </div>
 
@@ -39,6 +49,8 @@
     </section>
 }
 
+@if (canSeeFinances)
+{
 <div class="order-summary-grid">
     <article class="summary-box">
         <span>Total du ticket</span>
@@ -52,18 +64,23 @@
     <article class="summary-box summary-due"><span>Reste à payer</span><strong class="money-due">@Fcfa(Model.Order.Remaining)</strong></article>
     <article class="summary-box"><span>Solde espèces en caisse</span><strong>@Fcfa(Model.CashBalance)</strong></article>
 </div>
+}
+else if (canSeePrices)
+{
+    <div class="order-summary-grid"><article class="summary-box"><span>Prix estimatif du ticket</span><strong>@Fcfa(Model.Order.Total)</strong></article></div>
+}
 
 <section class="panel">
     <div class="panel-heading batch-heading">
         <div><span class="eyebrow">SUIVI ATELIER &amp; RANGEMENT</span><h2>Pièces du dépôt <span class="count-pill">@Model.Items.Count</span></h2></div>
-        @if (Model.Items.Any(i => i.ItemStatus != "retiré"))
+        @if (canManage && Model.Items.Any(i => i.ItemStatus != "retiré"))
         {
             <form asp-action="UpdateAllStatus" method="post" class="batch-status-form">
                 <input type="hidden" name="id" value="@Model.Order.OrderId" />
                 <input type="text" name="storageLocation" placeholder="Emplacement (ex. Penderie A-12)" maxlength="60" />
-                <button type="submit" name="status" value="en traitement" class="button button-soft button-small">Tout En traitement</button>
-                <button type="submit" name="status" value="prêt" class="button button-primary button-small">✓ Tout marquer Prêt</button>
-                <button type="submit" name="status" value="retiré" class="button button-outline button-small">Tout Retiré</button>
+                <button type="submit" name="status" value="lavage" class="button button-soft button-small">Tout envoyer au lavage</button>
+                <button type="submit" name="status" value="prêt" class="button button-primary button-small">✓ Tout marquer prêt</button>
+                <button type="submit" name="status" value="retiré" class="button button-outline button-small">Tout retirer</button>
             </form>
         }
     </div>
@@ -73,11 +90,21 @@
         var statusClass = item.ItemStatus switch
         {
             "déposé" => "status-deposee",
-            "en traitement" => "status-traitement",
+            "lavage" or "repassage" or "contrôle qualité" or "en traitement" => "status-traitement",
             "prêt" => "status-pret",
             "retiré" => "status-retire",
             _ => ""
         };
+        var nextStatuses = StaffPolicies.AllowedNextStatuses(User, item.ItemStatus);
+        var assignedRole = AccessRepository.StageRoleForStatus(item.ItemStatus);
+        var stageEmployees = assignedRole switch
+        {
+            "washer" => ViewBag.WasherEmployees as List<StaffUserRow> ?? [],
+            "finisher" => ViewBag.FinisherEmployees as List<StaffUserRow> ?? [],
+            "quality" => ViewBag.QualityEmployees as List<StaffUserRow> ?? [],
+            _ => []
+        };
+        var canEditAssignedItem = canManage || !item.AssignedToUserId.HasValue || item.AssignedToUserId == int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
         <article class="item-card">
             <div class="item-card-main">
                 <span class="item-icon">♧</span>
@@ -96,22 +123,50 @@
                     <small>Dépôt @item.DepositAt.ToString("dd/MM/yyyy HH:mm") · retrait prévu @(item.ExpectedPickupAt?.ToString("dd/MM/yyyy") ?? "à définir")</small>
                 </div>
             </div>
-            <div class="item-price"><span>@Fcfa(item.UnitPrice + item.ExpressFee)</span>@if(item.ExpressFee > 0){<small>dont express @Fcfa(item.ExpressFee)</small>}</div>
-            <form asp-action="UpdateItem" method="post" class="item-status-form">
-                <input type="hidden" name="id" value="@Model.Order.OrderId"/>
-                <input type="hidden" name="itemId" value="@item.ItemId"/>
-                <select name="ItemStatus" aria-label="Statut de l’article">
-                    @foreach(var status in statuses){<option selected="@(item.ItemStatus == status ? "selected" : null)" value="@status">@status</option>}
-                </select>
-                <input type="text" name="StorageLocation" value="@item.StorageLocation" placeholder="Penderie / Casier" maxlength="60" aria-label="Emplacement" />
-                <input type="date" name="ExpectedPickupAt" value="@item.ExpectedPickupAt?.ToString("yyyy-MM-dd")" aria-label="Date prévue de retrait"/>
-                <button class="button button-soft button-small" type="submit">OK</button>
-            </form>
+            @if(canSeePrices){<div class="item-price"><span>@Fcfa(item.UnitPrice + item.ExpressFee)</span>@if(item.ExpressFee > 0){<small>dont express @Fcfa(item.ExpressFee)</small>}</div>}
+            @if (!string.IsNullOrWhiteSpace(item.AssignedToName)) { <small class="assignment-label">Tâche attribuée à @item.AssignedToName</small> }
+            @if (canManage && assignedRole is not null && stageEmployees.Count > 0)
+            {
+                <form asp-action="AssignItem" method="post" class="mission-assign-form">
+                    <input type="hidden" name="id" value="@Model.Order.OrderId"/><input type="hidden" name="ItemId" value="@item.ItemId"/>
+                    <select name="EmployeeId" required><option value="">Attribuer (@StaffRoleCatalog.NameOf(assignedRole))…</option>@foreach(var employee in stageEmployees){<option value="@employee.Id" selected="@(item.AssignedToUserId == employee.Id ? "selected" : null)">@employee.DisplayName</option>}</select>
+                    <button class="button button-soft button-small" type="submit">Attribuer</button>
+                </form>
+            }
+            @if (canEditAssignedItem && nextStatuses.Count > 0)
+            {
+                <form asp-action="UpdateItem" method="post" class="item-status-form">
+                    <input type="hidden" name="id" value="@Model.Order.OrderId"/>
+                    <input type="hidden" name="itemId" value="@item.ItemId"/>
+                    <select name="ItemStatus" aria-label="Étape suivante de l’article">
+                        @foreach(var status in nextStatuses){<option value="@status">@status</option>}
+                    </select>
+                    @if (canManage)
+                    {
+                        <input type="text" name="StorageLocation" value="@item.StorageLocation" placeholder="Penderie / Casier" maxlength="60" aria-label="Emplacement" />
+                        <input type="date" name="ExpectedPickupAt" value="@item.ExpectedPickupAt?.ToString("yyyy-MM-dd")" aria-label="Date prévue de retrait"/>
+                    }
+                    <button class="button button-soft button-small" type="submit">Valider l’étape</button>
+                </form>
+            }
         </article>
     }
     </div>
 </section>
 
+<section class="panel form-panel incident-report-panel">
+    <div class="panel-heading"><div><span class="eyebrow">SUIVI DE SERVICE</span><h2>Signaler une anomalie ou une réclamation</h2></div></div>
+    <form asp-controller="Incidents" asp-action="Report" method="post" class="form-grid">
+        <input type="hidden" name="OrderId" value="@Model.Order.OrderId" />
+        <div class="field"><label for="incident-category">Type</label><select id="incident-category" name="Category"><option>Article endommagé</option><option>Article manquant</option><option>Retard</option><option>Réclamation client</option><option>Problème de traitement</option><option>Autre</option></select></div>
+        <div class="field"><label for="incident-item">Article concerné (facultatif)</label><select id="incident-item" name="ItemId"><option value="">Ticket entier</option>@foreach (var article in Model.Items){<option value="@article.ItemId">@article.CategoryName — @article.ItemStatus</option>}</select></div>
+        <div class="field field-wide"><label for="incident-description">Description</label><textarea id="incident-description" name="Description" rows="3" maxlength="255" required placeholder="Décrivez les faits pour que le responsable puisse agir."></textarea></div>
+        <div class="field field-wide"><button class="button button-outline" type="submit">Envoyer le signalement au responsable</button></div>
+    </form>
+</section>
+
+@if (canSeeFinances)
+{
 <div class="detail-grid payment-grid">
     <section class="panel"><div class="panel-heading"><div><span class="eyebrow">ENCAISSEMENT</span><h2>Enregistrer un paiement</h2></div></div>
         @if (Model.Order.Remaining > 0)
@@ -132,3 +187,18 @@
         else { <div class="table-scroll"><table><thead><tr><th>Reçu</th><th>Date</th><th>Moyen</th><th>Montant</th><th></th></tr></thead><tbody>@foreach(var payment in Model.Payments){<tr><td>@payment.ReceiptNo</td><td>@payment.PaymentAt.ToString("dd/MM/yy HH:mm")</td><td>@payment.PaymentMethod</td><td>@Fcfa(payment.Amount)</td><td><a class="text-link" asp-controller="Receipts" asp-action="Payment" asp-route-id="@payment.PaymentId" target="_blank">PDF</a></td></tr>}</tbody></table></div> }
     </section>
 </div>
+}
+
+@if ((User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception")) && hasReadyArticle)
+{
+    <section class="panel form-panel delivery-request-panel">
+        <div class="panel-heading"><div><span class="eyebrow">REMISE AU CLIENT</span><h2>Créer une mission de livraison</h2></div></div>
+        <form asp-controller="Deliveries" asp-action="CreateOrderDelivery" method="post" class="form-grid">
+            <input type="hidden" name="orderId" value="@Model.Order.OrderId"/>
+            <div class="field field-wide"><label>Adresse de livraison</label><input name="address" value="@Model.Client.Address" maxlength="255" required placeholder="Adresse complète et repère"/></div>
+            <div class="field"><label>Date / heure souhaitée</label><input name="scheduledAt" type="datetime-local"/></div>
+            <div class="field"><label>Consigne</label><input name="notes" maxlength="255" placeholder="Appeler à l’arrivée…"/></div>
+            <div class="field field-wide"><button class="button button-primary" type="submit">Créer une mission pour ce ticket</button></div>
+        </form>
+    </section>
+}

@@ -1,13 +1,16 @@
 @model List<OrderSummary>
 @{
     ViewData["Title"] = "Tickets & articles";
+    var canSeeFinances = StaffPolicies.CanSeeFinances(User);
+    var canSeePrices = canSeeFinances || User.IsInRole("reception");
+    var canCreateOrder = User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception");
 }
-<div class="page-heading"><div><span class="eyebrow">PRODUCTION & RETRAITS</span><h1>Tickets & articles</h1><p>Suivez chaque dépôt, article, échéance et retrait.</p></div><a class="button button-primary" asp-action="Create">＋ Nouveau dépôt</a></div>
+<div class="page-heading"><div><span class="eyebrow">PRODUCTION & RETRAITS</span><h1>Tickets & articles</h1><p>@ViewBag.QueueLabel · le client conserve son identifiant, chaque dépôt reçoit un nouveau ticket.</p></div>@if(canCreateOrder){<a class="button button-primary" asp-action="Create">＋ Nouveau dépôt</a>}</div>
 <section class="panel"><form class="search-bar" method="get"><span>⌕</span><input name="q" value="@ViewBag.Query" placeholder="Numéro de ticket ou nom du client…"/><button class="button button-outline button-small" type="submit">Rechercher</button></form>
-<div class="table-scroll"><table><thead><tr><th>Ticket unique</th><th>Client</th><th>Déposé le</th><th>Statut</th><th>Total</th><th>Payé</th><th>Reste dû</th><th></th></tr></thead><tbody>
+<div class="table-scroll"><table><thead><tr><th>Ticket unique</th><th>Client</th><th>Déposé le</th><th>Statut</th>@if(canSeePrices){<th>Prix</th>}@if(canSeeFinances){<th>Payé</th><th>Reste dû</th>}<th></th></tr></thead><tbody>
 @foreach (var order in Model)
 {
-    <tr><td><a class="ticket-link" asp-action="Details" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.ClientName</td><td>@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td><td><span class="status-pill">@order.OrderStatus</span></td><td>@Fcfa(order.Total)</td><td>@Fcfa(order.Paid)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td><td><a class="icon-link" asp-action="Details" asp-route-id="@order.OrderId">→</a></td></tr>
+    <tr><td><a class="ticket-link" asp-action="Details" asp-route-id="@order.OrderId">@order.TicketNo</a></td><td>@order.ClientName</td><td>@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td><td><span class="status-pill">@order.OrderStatus</span></td>@if(canSeePrices){<td>@Fcfa(order.Total)</td>}@if(canSeeFinances){<td>@Fcfa(order.Paid)</td><td><span class="@(order.Remaining > 0 ? "money-due" : "money-paid")">@Fcfa(order.Remaining)</span></td>}<td><a class="icon-link" asp-action="Details" asp-route-id="@order.OrderId">→</a></td></tr>
 }
-@if (Model.Count == 0) { <tr><td colspan="8"><div class="empty-inline">Aucun ticket ne correspond à la recherche.</div></td></tr> }
+@if (Model.Count == 0) { <tr><td colspan="@(canSeeFinances ? 8 : canSeePrices ? 6 : 5)"><div class="empty-inline">Aucun ticket ne correspond à la recherche.</div></td></tr> }
 </tbody></table></div></section>

@@ -16,24 +16,27 @@
     {
         <div class="app-shell">
             <aside class="sidebar">
-                <a class="brand" asp-controller="Dashboard" asp-action="Index"><img class="brand-logo" src="~/img/fresh-care-logo.png" alt="Fresh &amp; Care"/><span><strong>FRESH <b>&amp;</b> CARE</strong><small>GESTION PRESSING</small></span></a>
+                <a class="brand" asp-controller="Account" asp-action="StaffHome"><img class="brand-logo" src="~/img/fresh-care-logo.png" alt="Fresh &amp; Care"/><span><strong>FRESH <b>&amp;</b> CARE</strong><small>GESTION PRESSING</small></span></a>
                 <div class="nav-caption">ESPACE GESTION</div>
                 <nav class="main-nav">
-                    <a class="@(activeController == "Dashboard" && activeAction == "Index" ? "nav-current" : null)" aria-current="@(activeController == "Dashboard" && activeAction == "Index" ? "page" : null)" asp-controller="Dashboard" asp-action="Index">🏠 <span>Dashboard</span></a>
-                    <a class="@(activeController == "Clients" ? "nav-current" : null)" aria-current="@(activeController == "Clients" ? "page" : null)" asp-controller="Clients" asp-action="Index">👥 <span>Clients</span></a>
-                    <a class="@(activeController == "Orders" ? "nav-current" : null)" aria-current="@(activeController == "Orders" ? "page" : null)" asp-controller="Orders" asp-action="Index">📋 <span>Tickets &amp; articles</span></a>
-                    <a class="@(activeController == "Communications" ? "nav-current" : null)" aria-current="@(activeController == "Communications" ? "page" : null)" asp-controller="Communications" asp-action="Index">✉️ <span>Messagerie</span>@if (ViewBag.UnreadMessages != null && (int)ViewBag.UnreadMessages > 0){<b class="topbar-badge">@ViewBag.UnreadMessages</b>}</a>
-                    <a class="@(activeController == "Inventory" ? "nav-current" : null)" aria-current="@(activeController == "Inventory" ? "page" : null)" asp-controller="Inventory" asp-action="Index">📦 <span>Stock &amp; consommables</span></a>
-                    <a class="@(activeController == "Tariffs" ? "nav-current" : null)" aria-current="@(activeController == "Tariffs" ? "page" : null)" asp-controller="Tariffs" asp-action="Index">💲 <span>Grille tarifaire</span></a>
-                    <a class="@(activeController == "Dashboard" && activeAction == "ClosingReport" ? "nav-current" : null)" aria-current="@(activeController == "Dashboard" && activeAction == "ClosingReport" ? "page" : null)" asp-controller="Dashboard" asp-action="ClosingReport">📊 <span>Rapports</span></a>
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager")) { <a class="@(activeController == "Dashboard" && activeAction == "Index" ? "nav-current" : null)" asp-controller="Dashboard" asp-action="Index">🏠 <span>Dashboard</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception")) { <a class="@(activeController == "Clients" ? "nav-current" : null)" asp-controller="Clients" asp-action="Index">👥 <span>Clients</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception") || User.IsInRole("washer") || User.IsInRole("finisher") || User.IsInRole("quality") || User.IsInRole("cashier")) { <a class="@(activeController == "Orders" ? "nav-current" : null)" asp-controller="Orders" asp-action="Index">📋 <span>@(User.IsInRole("washer") || User.IsInRole("finisher") || User.IsInRole("quality") ? "File atelier" : "Tickets & articles")</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception")) { <a class="@(activeController == "Communications" ? "nav-current" : null)" asp-controller="Communications" asp-action="Index">✉️ <span>Messagerie</span>@if (ViewBag.UnreadMessages != null && (int)ViewBag.UnreadMessages > 0){<b class="topbar-badge">@ViewBag.UnreadMessages</b>}</a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("stockkeeper")) { <a class="@(activeController == "Inventory" ? "nav-current" : null)" asp-controller="Inventory" asp-action="Index">📦 <span>Stock &amp; consommables</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager")) { <a class="@(activeController == "Tariffs" ? "nav-current" : null)" asp-controller="Tariffs" asp-action="Index">💲 <span>Grille tarifaire</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("cashier")) { <a class="@(activeController == "Dashboard" && activeAction == "ClosingReport" ? "nav-current" : null)" asp-controller="Dashboard" asp-action="ClosingReport">📊 <span>Rapports financiers</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("delivery") || User.IsInRole("reception")) { <a class="@(activeController == "Deliveries" ? "nav-current" : null)" asp-controller="Deliveries" asp-action="Index">🚚 <span>Missions</span></a> }
+                    @if (User.IsInRole("super_admin") || User.IsInRole("manager")) { <a class="@(activeController == "Incidents" ? "nav-current" : null)" asp-controller="Incidents" asp-action="Index">⚠️ <span>Réclamations &amp; incidents</span></a> }
+                    @if (User.IsInRole("super_admin")) { <a class="@(activeController == "Users" ? "nav-current" : null)" asp-controller="Users" asp-action="Index">🧑‍🤝‍🧑 <span>Employés &amp; rôles</span></a><a class="@(activeController == "Activity" ? "nav-current" : null)" asp-controller="Activity" asp-action="Index">🕘 <span>Journal d’activité</span></a> }
                 </nav>
                 <div class="sidebar-bottom">
-                    <div class="user-chip"><span class="user-avatar">@User.Identity?.Name?.Substring(0, 1).ToUpperInvariant()</span><span><strong>Gestionnaire</strong><small>@User.Identity?.Name</small></span></div>
+                    <div class="user-chip"><span class="user-avatar">@(string.IsNullOrEmpty(User.Identity?.Name) ? "U" : User.Identity!.Name![0].ToString().ToUpperInvariant())</span><span><strong>@User.FindFirst("display_role")?.Value</strong><small>@User.Identity?.Name</small></span></div>
                     <form asp-controller="Account" asp-action="Logout" method="post"><button class="nav-logout" type="submit">↪ Déconnexion</button></form>
                 </div>
             </aside>
             <main class="main-content">
-                <header class="topbar"><div><span class="eyebrow">ESPACE PROFESSIONNEL</span><strong>Bienvenue chez Fresh &amp; Care</strong></div><a class="button button-primary button-small" asp-controller="Orders" asp-action="Create">＋ Nouveau dépôt</a></header>
+                <header class="topbar"><div><span class="eyebrow">ESPACE PROFESSIONNEL</span><strong>Bienvenue chez Fresh &amp; Care</strong></div>@if (User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception")){<a class="button button-primary button-small" asp-controller="Orders" asp-action="Create">＋ Nouveau dépôt</a>}</header>
                 <div class="content-wrap">
                     @await Html.PartialAsync("_Flash")
                     @RenderBody()
@@ -47,7 +50,7 @@
         <aside class="naya-page-guide" data-naya-guide
                data-controller="@activeController"
                data-action="@activeAction"
-               data-auto-open="@((activeController == "Clients" && (activeAction == "Create" || activeAction == "Edit")) || (activeController == "Orders" && (activeAction == "Create" || activeAction == "Details")) || (activeController == "Communications" && (activeAction == "Compose" || activeAction == "Thread")) || (activeController == "Inventory" && activeAction == "Index") || (activeController == "Tariffs" && activeAction == "Index") || (activeController == "Dashboard" && activeAction == "ClosingReport") ? "true" : "false")">
+               data-auto-open="@((activeController == "Clients" && (activeAction == "Create" || activeAction == "Edit")) || (activeController == "Orders" && (activeAction == "Create" || activeAction == "Details")) || (activeController == "Communications" && (activeAction == "Compose" || activeAction == "Thread")) || (activeController == "Inventory" && activeAction == "Index") || (activeController == "Tariffs" && activeAction == "Index") || (activeController == "Dashboard" && activeAction == "ClosingReport") || (activeController == "Users" && (activeAction == "Create" || activeAction == "Edit")) || (activeController == "Deliveries" && (activeAction == "Index" || activeAction == "CreateCollection")) ? "true" : "false")">
             <section class="naya-page-guide-panel" data-naya-guide-panel hidden>
                 <header><span data-naya-guide-heading>Naya · guide de la page</span><button type="button" data-naya-guide-close aria-label="Fermer le guide Naya">×</button></header>
                 <strong data-naya-guide-title>Comprendre cette étape</strong>

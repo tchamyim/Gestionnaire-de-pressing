@@ -1,0 +1,24 @@
+@model StaffUserInput
+@{
+    ViewData["Title"] = "Créer un compte employé";
+    var roles = ViewBag.RoleCatalog as IReadOnlyList<Pressings.Services.StaffRoleOption> ?? [];
+    var selected = ViewBag.SelectedRoles as HashSet<string> ?? [];
+}
+<div class="page-heading"><div><span class="eyebrow">NOUVEAU COMPTE</span><h1>Ajouter un employé</h1><p>Le mot de passe sera stocké sous forme de hachage.</p></div><a class="button button-outline" asp-action="Index">← Équipe</a></div>
+<div class="form-layout"><section class="panel form-panel"><form asp-action="Create" method="post">
+    <div asp-validation-summary="All" class="validation-summary"></div>
+    <div class="form-grid">
+        <div class="field"><label asp-for="DisplayName">Nom affiché</label><input asp-for="DisplayName" autocomplete="name"/><span asp-validation-for="DisplayName"></span></div>
+        <div class="field"><label asp-for="Email">Adresse e-mail de connexion</label><input asp-for="Email" autocomplete="username"/><span asp-validation-for="Email"></span></div>
+        <div class="field field-wide"><label asp-for="Password">Mot de passe temporaire</label><input asp-for="Password" type="password" autocomplete="new-password" minlength="12"/><span asp-validation-for="Password"></span><small>L’employé pourra se connecter avec cette adresse et ce mot de passe.</small></div>
+    </div>
+    <fieldset class="role-picker"><legend>Rôles et accès</legend><p class="field-hint">Coche les fonctions confiées à cette personne. Un employé peut en cumuler plusieurs.</p>
+        @foreach (var role in roles)
+        {
+            <label class="role-option"><input type="checkbox" name="RoleCodes" value="@role.Code" checked="@selected.Contains(role.Code)" /><span><strong>@role.Name</strong><small>@role.Description</small></span></label>
+        }
+        <span asp-validation-for="RoleCodes"></span>
+    </fieldset>
+    <div class="field check-row"><label><input asp-for="IsActive" /> Compte actif dès sa création</label></div>
+    <div class="form-actions"><a class="button button-outline" asp-action="Index">Annuler</a><button class="button button-primary" type="submit">Créer le compte</button></div>
+</form></section></div>

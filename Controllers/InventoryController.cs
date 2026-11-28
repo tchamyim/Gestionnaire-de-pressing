@@ -6,7 +6,7 @@ using Pressings.Services;
 
 namespace Pressings.Controllers;
 
-[Authorize(Roles = "staff")]
+[Authorize(Policy = StaffPolicies.Inventory)]
 public sealed class InventoryController(AccessRepository repository) : Controller
 {
     public IActionResult Index() => View(repository.GetInventory());

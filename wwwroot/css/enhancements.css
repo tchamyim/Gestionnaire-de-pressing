@@ -517,3 +517,37 @@ body { background: var(--canvas); }
     .workflow-step { transition: none; }
     .workflow-step:hover { transform: none; }
 }
+
+.role-picker { display: grid; gap: 8px; margin: 18px 0; padding: 15px; border: 1px solid var(--line); border-radius: 10px; }
+.role-picker legend { padding: 0 7px; color: var(--navy); font-size: 12px; font-weight: 800; }
+.role-option { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid #e7edf1; border-radius: 8px; background: #fbfdfe; cursor: pointer; }
+.role-option input { flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--blue); }
+.role-option strong, .role-option small { display: block; }
+.role-option strong { color: var(--navy); font-size: 10px; }
+.role-option small { margin-top: 3px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.role-option:has(input:checked) { border-color: #9dc4d7; background: #f1f8fb; }
+.inline-form { display: inline-flex; }
+.table-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.delivery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.delivery-card { min-width: 0; }
+.delivery-card .panel-heading h2 { margin: 4px 0 0; }
+.delivery-facts { display: grid; gap: 10px; margin: 14px 0; }
+.delivery-facts > div { display: grid; gap: 3px; }
+.delivery-facts small { color: #84939d; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.delivery-facts strong, .delivery-facts a { color: var(--navy); font-size: 11px; overflow-wrap: anywhere; }
+.mission-assign-form, .mission-update-form { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.mission-assign-form { grid-template-columns: minmax(0, 1fr) auto; }
+.mission-assign-form select, .mission-update-form input, .mission-update-form select { min-width: 0; font-size: 10px; }
+.mission-update-form .field { gap: 4px; }
+.assignment-label { grid-column: 1 / -1; color: #657987; font-size: 9px; }
+.item-card { grid-template-columns: minmax(200px, 1fr) auto; }
+.item-status-form, .item-card .mission-assign-form { grid-column: 1 / -1; }
+.item-card .mission-assign-form { grid-template-columns: minmax(0, 1fr) auto; }
+.delivery-request-panel { margin-top: 16px; }
+
+@media (max-width: 760px) {
+    .mission-assign-form { grid-template-columns: 1fr; }
+    .item-card .mission-assign-form { grid-template-columns: 1fr; }
+    .item-card { grid-template-columns: 1fr; }
+    .table-actions { align-items: flex-start; }
+}

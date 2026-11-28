@@ -11,14 +11,14 @@ public sealed class ReceiptsController(AccessRepository repository, IWebHostEnvi
     public IActionResult Ticket(int id)
     {
         var order = repository.GetOrderDetails(id);
-        if (order is null || !CanReadClient(order.Client.ClientId)) return NotFound();
+        if (order is null || !CanReadClient(order.Client.ClientId, ticketDocument: true)) return NotFound();
         return File(ReceiptPdfService.Ticket(order), "application/pdf", $"ticket-{order.Order.TicketNo}.pdf");
     }
 
     public IActionResult InvoiceExcel(int id)
     {
         var order = repository.GetOrderDetails(id);
-        if (order is null || !CanReadClient(order.Client.ClientId)) return NotFound();
+        if (order is null || !CanReadClient(order.Client.ClientId, financialDocument: true)) return NotFound();
         return File(InvoiceDocumentService.Excel(order, BrandLogoPng()),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"facture-{order.Order.TicketNo}.xlsx");
@@ -27,7 +27,7 @@ public sealed class ReceiptsController(AccessRepository repository, IWebHostEnvi
     public IActionResult InvoiceWord(int id)
     {
         var order = repository.GetOrderDetails(id);
-        if (order is null || !CanReadClient(order.Client.ClientId)) return NotFound();
+        if (order is null || !CanReadClient(order.Client.ClientId, financialDocument: true)) return NotFound();
         return File(InvoiceDocumentService.Word(order, BrandLogoPng()),
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             $"facture-{order.Order.TicketNo}.docx");
@@ -36,7 +36,7 @@ public sealed class ReceiptsController(AccessRepository repository, IWebHostEnvi
     public IActionResult InvoicePdf(int id)
     {
         var order = repository.GetOrderDetails(id);
-        if (order is null || !CanReadClient(order.Client.ClientId)) return NotFound();
+        if (order is null || !CanReadClient(order.Client.ClientId, financialDocument: true)) return NotFound();
         return File(ReceiptPdfService.Invoice(order, BrandLogoJpeg()), "application/pdf", $"facture-{order.Order.TicketNo}.pdf");
     }
 
@@ -46,13 +46,18 @@ public sealed class ReceiptsController(AccessRepository repository, IWebHostEnvi
         if (payment is null) return NotFound();
         var orderId = repository.PaymentOrderId(id);
         var order = repository.GetOrderDetails(orderId);
-        if (order is null || !CanReadClient(order.Client.ClientId)) return NotFound();
+        if (order is null || !CanReadClient(order.Client.ClientId, financialDocument: true)) return NotFound();
         return File(ReceiptPdfService.Payment(order, payment), "application/pdf", $"recu-{payment.ReceiptNo}.pdf");
     }
 
-    private bool CanReadClient(int clientId)
+    private bool CanReadClient(int clientId, bool financialDocument = false, bool ticketDocument = false)
     {
-        if (User.IsInRole("staff")) return true;
+        if (User.IsInRole("staff"))
+        {
+            if (financialDocument) return StaffPolicies.CanSeeFinances(User);
+            if (ticketDocument) return StaffPolicies.CanSeeFinances(User) || User.IsInRole("reception");
+            return User.IsInRole("super_admin") || User.IsInRole("manager") || User.IsInRole("reception") || User.IsInRole("washer") || User.IsInRole("finisher") || User.IsInRole("quality") || User.IsInRole("cashier");
+        }
         return User.IsInRole("client") && int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var current) && current == clientId;
     }
 

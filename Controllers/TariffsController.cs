@@ -5,7 +5,7 @@ using Pressings.Services;
 
 namespace Pressings.Controllers;
 
-[Authorize(Roles = "staff")]
+[Authorize(Policy = StaffPolicies.Tariffs)]
 public sealed class TariffsController(AccessRepository repository) : Controller
 {
     public IActionResult Index() => View(repository.GetTariffs());

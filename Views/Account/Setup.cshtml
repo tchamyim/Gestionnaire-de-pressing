@@ -5,6 +5,7 @@
 <div class="auth-card"><div class="auth-emblem">✦</div><span class="eyebrow">PREMIÈRE CONNEXION</span><h1>Bienvenue !</h1><p class="auth-subtitle">Créez votre accès gestionnaire pour commencer à utiliser Fresh &amp; Care.</p>
 <form asp-action="Setup" method="post" class="auth-form">
     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+    <div class="field"><label asp-for="DisplayName">Nom affiché</label><input asp-for="DisplayName" autocomplete="name"/><span asp-validation-for="DisplayName"></span></div>
     <div class="field"><label asp-for="Email">Adresse e-mail</label><input asp-for="Email" autocomplete="email" placeholder="vous@exemple.com"/><span asp-validation-for="Email"></span></div>
     <div class="field"><label asp-for="Password">Créer un mot de passe privé</label><input asp-for="Password" type="password" autocomplete="new-password" placeholder="Au moins 6 caractères en local, 12 en ligne"/><span asp-validation-for="Password"></span></div>
     <div class="field"><label asp-for="ConfirmPassword">Confirmer le mot de passe</label><input asp-for="ConfirmPassword" type="password" autocomplete="new-password"/><span asp-validation-for="ConfirmPassword"></span></div>

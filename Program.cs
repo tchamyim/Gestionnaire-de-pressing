@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Pressings.Services;
@@ -23,9 +24,38 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             ? CookieSecurePolicy.Always
             : CookieSecurePolicy.SameAsRequest;
         options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/Denied";
         options.ExpireTimeSpan = TimeSpan.FromHours(10);
         options.SlidingExpiration = true;
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var principal = context.Principal;
+            if (principal?.IsInRole("staff") != true) return;
+            if (!int.TryParse(principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                return;
+            }
+
+            var repository = context.HttpContext.RequestServices.GetRequiredService<AccessRepository>();
+            var account = repository.FindAdmin(userId);
+            if (account is null)
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                return;
+            }
+
+            var roles = repository.GetAdminRoles(userId);
+            var oldRoles = principal.FindAll(System.Security.Claims.ClaimTypes.Role)
+                .Select(claim => claim.Value).Where(Pressings.Services.StaffRoleCatalog.IsKnown).ToHashSet(StringComparer.Ordinal);
+            if (!oldRoles.SetEquals(roles) || !string.Equals(principal.Identity?.Name, account.DisplayName, StringComparison.Ordinal))
+            {
+                context.ReplacePrincipal(Pressings.Services.StaffClaimsFactory.Create(account, roles));
+                context.ShouldRenew = true;
+            }
+        };
     });
 builder.Services.AddAntiforgery(options =>
 {
@@ -37,7 +67,7 @@ builder.Services.AddAntiforgery(options =>
         ? CookieSecurePolicy.Always
         : CookieSecurePolicy.SameAsRequest;
 });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(Pressings.Services.StaffPolicies.Configure);
 
 var app = builder.Build();
 app.Services.GetRequiredService<AccessRepository>().Initialize();

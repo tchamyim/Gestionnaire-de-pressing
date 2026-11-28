@@ -1,0 +1,51 @@
+@model List<DeliveryMission>
+@{
+    ViewData["Title"] = "Missions de livraison";
+    var canManage = ViewBag.CanManage as bool? == true;
+    var deliveryStaff = ViewBag.DeliveryStaff as List<StaffUserRow> ?? [];
+}
+<div class="page-heading">
+    <div><span class="eyebrow">COLLECTE &amp; LIVRAISON</span><h1>Missions</h1><p>Les collectes et remises sont attribuées à un livreur et suivies jusqu’à leur clôture.</p></div>
+    @if (canManage) { <a class="button button-primary" asp-action="CreateCollection">＋ Demander une collecte</a> }
+</div>
+@if (Model.Count == 0)
+{
+    <section class="panel empty-state"><span>🚚</span><strong>Aucune mission en attente</strong><p>@(canManage ? "Créez une collecte ou une livraison depuis un ticket prêt." : "Les missions qui vous seront attribuées apparaîtront ici.")</p></section>
+}
+else
+{
+    <div class="delivery-grid">
+    @foreach (var mission in Model)
+    {
+        <article class="panel delivery-card">
+            <div class="panel-heading"><div><span class="eyebrow">@(mission.Direction == "collecte" ? "COLLECTE" : "LIVRAISON") · #@mission.MissionId</span><h2>@mission.ClientName</h2></div><span class="status-pill">@mission.Status</span></div>
+            <div class="delivery-facts">
+                <div><small>CONTACT</small><strong>@mission.Phone</strong></div>
+                <div><small>ADRESSE</small><strong>@mission.Address</strong></div>
+                @if (!string.IsNullOrWhiteSpace(mission.TicketNo)) { <div><small>TICKET</small><a class="ticket-link" asp-controller="Orders" asp-action="Details" asp-route-id="@mission.OrderId">@mission.TicketNo</a></div> }
+                <div><small>LIVREUR</small><strong>@(string.IsNullOrWhiteSpace(mission.AssignedToName) ? "À attribuer" : mission.AssignedToName)</strong></div>
+                <div><small>HORAIRE</small><strong>@(mission.ScheduledAt?.ToString("dd/MM/yyyy HH:mm") ?? "À convenir")</strong></div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(mission.Notes)) { <p class="field-hint">@mission.Notes</p> }
+            @if (canManage)
+            {
+                <form asp-action="Assign" method="post" class="mission-assign-form">
+                    <input type="hidden" name="id" value="@mission.MissionId"/>
+                    <select name="employeeId" required><option value="">Attribuer à un livreur…</option>@foreach (var employee in deliveryStaff){<option value="@employee.Id" selected="@(mission.AssignedToUserId == employee.Id ? "selected" : null)">@employee.DisplayName</option>}</select>
+                    <button class="button button-soft button-small" type="submit">Attribuer</button>
+                </form>
+            }
+            @if (canManage || mission.AssignedToUserId == int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value))
+            {
+                <form asp-action="Update" method="post" class="mission-update-form">
+                    <input type="hidden" name="id" value="@mission.MissionId"/>
+                    <div class="field"><label>Étape</label><select name="Status"><option value="en route">En route</option><option value="@(mission.Direction == "collecte" ? "collectée" : "livrée")">@(mission.Direction == "collecte" ? "Collectée" : "Livrée")</option><option value="échec">Incident / échec</option></select></div>
+                    <div class="field"><label>Compte rendu</label><input name="Notes" maxlength="255" value="@mission.Notes" placeholder="Retard, consigne, incident…"/></div>
+                    <div class="field"><label>Preuve de remise <small>(facultative)</small></label><input name="Proof" maxlength="255" value="@mission.Proof" placeholder="Nom du réceptionnaire ou référence"/></div>
+                    <button class="button button-primary button-small" type="submit">Enregistrer l’étape</button>
+                </form>
+            }
+        </article>
+    }
+    </div>
+}

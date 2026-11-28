@@ -115,9 +115,34 @@ public partial class MainWindow : Window
             }
         }
         if (string.IsNullOrWhiteSpace(configured)) return null;
-        if (!Uri.TryCreate(configured, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
-            throw new InvalidOperationException("OnlineUrl doit être une adresse HTTPS sécurisée.");
+        if (!Uri.TryCreate(configured, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && IsPrivateNetworkHost(uri.Host))))
+            throw new InvalidOperationException("OnlineUrl doit être une adresse HTTPS ou une adresse HTTP privée du réseau local.");
         return uri.ToString().TrimEnd('/');
+    }
+
+    private static bool IsPrivateNetworkHost(string host)
+    {
+        if (!IPAddress.TryParse(host, out var address))
+        {
+            var name = host.TrimEnd('.');
+            return name.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                   name.EndsWith(".local", StringComparison.OrdinalIgnoreCase) ||
+                   name.EndsWith(".lan", StringComparison.OrdinalIgnoreCase) ||
+                   (!name.Contains('.') && !string.IsNullOrWhiteSpace(name));
+        }
+
+        if (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6SiteLocal) return true;
+        var bytes = address.GetAddressBytes();
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            return bytes[0] == 10 ||
+                   (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) ||
+                   (bytes[0] == 192 && bytes[1] == 168) ||
+                   (bytes[0] == 169 && bytes[1] == 254);
+        }
+
+        return address.AddressFamily == AddressFamily.InterNetworkV6 && bytes.Length > 0 && (bytes[0] & 0xFE) == 0xFC;
     }
 
     private static string? FindProjectRoot()

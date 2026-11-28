@@ -8,7 +8,7 @@ using Pressings.Services;
 
 namespace Pressings.Controllers;
 
-[Authorize(Roles = "staff")]
+[Authorize(Policy = StaffPolicies.ClientManagement)]
 public sealed class ClientsController(AccessRepository repository) : Controller
 {
     private readonly PasswordHasher<PortalAccount> _hasher = new();
@@ -47,7 +47,7 @@ public sealed class ClientsController(AccessRepository repository) : Controller
     {
         var client = repository.GetClient(id);
         if (client is null) return NotFound();
-        return View(new ClientInput { FirstName = client.FirstName, LastName = client.LastName, Phone = client.Phone, WhatsApp = client.WhatsApp, Email = client.Email });
+        return View(new ClientInput { FirstName = client.FirstName, LastName = client.LastName, Phone = client.Phone, WhatsApp = client.WhatsApp, Email = client.Email, Address = client.Address });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

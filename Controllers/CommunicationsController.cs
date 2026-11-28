@@ -7,7 +7,7 @@ using Pressings.Services;
 
 namespace Pressings.Controllers;
 
-[Authorize(Roles = "staff")]
+[Authorize(Policy = StaffPolicies.Communications)]
 public sealed class CommunicationsController(AccessRepository repository, ClientCommunicationService mailer) : Controller
 {
     public IActionResult Index(string? q, bool unreadOnly = false)
@@ -26,7 +26,7 @@ public sealed class CommunicationsController(AccessRepository repository, Client
         });
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = StaffPolicies.EmailConfiguration), HttpPost, ValidateAntiForgeryToken]
     public IActionResult SaveEmailSettings(EmailSettingsInput input)
     {
         if (!ModelState.IsValid)
@@ -45,7 +45,7 @@ public sealed class CommunicationsController(AccessRepository repository, Client
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Policy = StaffPolicies.EmailConfiguration), HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> TestEmailSettings(string testRecipient, CancellationToken cancellationToken)
     {
         if (!MailAddress.TryCreate(testRecipient?.Trim(), out _))

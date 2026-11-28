@@ -7,7 +7,39 @@ public sealed class AdminAccount
 {
     public int Id { get; set; }
     public string Email { get; set; } = "";
+    public string DisplayName { get; set; } = "";
     public string PasswordHash { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    public List<string> RoleCodes { get; set; } = [];
+}
+
+public sealed class StaffUserRow
+{
+    public int Id { get; set; }
+    public string DisplayName { get; set; } = "";
+    public string Email { get; set; } = "";
+    public bool IsActive { get; set; }
+    public List<string> RoleCodes { get; set; } = [];
+    public string RoleNames => string.Join(" · ", RoleCodes.Select(Pressings.Services.StaffRoleCatalog.NameOf));
+}
+
+public sealed class StaffUserInput
+{
+    public int Id { get; set; }
+    [Required, StringLength(120, MinimumLength = 2)] public string DisplayName { get; set; } = "";
+    [Required, EmailAddress, StringLength(255)] public string Email { get; set; } = "";
+    [StringLength(128)] public string? Password { get; set; }
+    public bool IsActive { get; set; } = true;
+    [MinLength(1, ErrorMessage = "Choisissez au moins un rôle.")] public List<string> RoleCodes { get; set; } = [];
+}
+
+public sealed class ActivityLogRow
+{
+    public int Id { get; set; }
+    public string EmployeeName { get; set; } = "Système";
+    public string EventType { get; set; } = "";
+    public string Details { get; set; } = "";
+    public DateTime EventAt { get; set; }
 }
 
 public sealed class PortalAccount
@@ -28,6 +60,7 @@ public sealed class ClientRecord
     public string Phone { get; set; } = "";
     public string WhatsApp { get; set; } = "";
     public string Email { get; set; } = "";
+    public string Address { get; set; } = "";
     public DateTime CreatedAt { get; set; }
     public decimal Balance { get; set; }
 }
@@ -156,6 +189,74 @@ public sealed class ClientInput
     [Required, StringLength(30)] public string Phone { get; set; } = "";
     [StringLength(30)] public string? WhatsApp { get; set; }
     [EmailAddress, StringLength(255)] public string? Email { get; set; }
+    [StringLength(255)] public string? Address { get; set; }
+}
+
+public sealed class DeliveryMission
+{
+    public int MissionId { get; set; }
+    public int ClientId { get; set; }
+    public int? OrderId { get; set; }
+    public string TicketNo { get; set; } = "";
+    public string ClientName { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Direction { get; set; } = "livraison";
+    public string Status { get; set; } = "à affecter";
+    public int? AssignedToUserId { get; set; }
+    public string AssignedToName { get; set; } = "";
+    public string Address { get; set; } = "";
+    public DateTime? ScheduledAt { get; set; }
+    public string Notes { get; set; } = "";
+    public string Proof { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+}
+
+public sealed class DeliveryMissionInput
+{
+    [Range(1, int.MaxValue)] public int ClientId { get; set; }
+    public int? OrderId { get; set; }
+    [Required] public string Direction { get; set; } = "collecte";
+    [Required, StringLength(255)] public string Address { get; set; } = "";
+    public DateTime? ScheduledAt { get; set; }
+    [StringLength(255)] public string? Notes { get; set; }
+}
+
+public sealed class DeliveryUpdateInput
+{
+    [Required] public string Status { get; set; } = "en route";
+    [StringLength(255)] public string? Notes { get; set; }
+    [StringLength(255)] public string? Proof { get; set; }
+}
+
+public sealed class OrderIncidentInput
+{
+    [Required] public int OrderId { get; set; }
+    public int? ItemId { get; set; }
+    [Required, StringLength(50)] public string Category { get; set; } = "Réclamation client";
+    [Required, StringLength(255, MinimumLength = 3)] public string Description { get; set; } = "";
+}
+
+public sealed class OrderIncidentUpdateInput
+{
+    [Required] public string Status { get; set; } = "en cours";
+    [StringLength(1000)] public string? Resolution { get; set; }
+}
+
+public sealed class OrderIncident
+{
+    public int IncidentId { get; set; }
+    public int OrderId { get; set; }
+    public int? ItemId { get; set; }
+    public string TicketNo { get; set; } = "";
+    public string ClientName { get; set; } = "";
+    public string ReporterName { get; set; } = "";
+    public string Category { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string Resolution { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
 }
 
 public sealed class TariffCategory
@@ -261,6 +362,8 @@ public sealed class OrderItemViewModel
     public string Description { get; set; } = "";
     public string ConditionNotes { get; set; } = "";
     public string StorageLocation { get; set; } = "";
+    public int? AssignedToUserId { get; set; }
+    public string AssignedToName { get; set; } = "";
     public decimal UnitPrice { get; set; }
     public decimal ExpressFee { get; set; }
     public bool IsExpress { get; set; }
@@ -268,6 +371,12 @@ public sealed class OrderItemViewModel
     public DateTime DepositAt { get; set; }
     public DateTime? ExpectedPickupAt { get; set; }
     public DateTime? WithdrawnAt { get; set; }
+}
+
+public sealed class AssignOrderItemInput
+{
+    public int ItemId { get; set; }
+    public int EmployeeId { get; set; }
 }
 
 public sealed class PaymentViewModel
@@ -384,6 +493,7 @@ public sealed class AdminLoginInput
 
 public sealed class SetupAdminInput
 {
+    [StringLength(120)] public string DisplayName { get; set; } = "Administrateur général";
     [Required, EmailAddress] public string Email { get; set; } = "";
     [Required, StringLength(128)] public string Password { get; set; } = "";
     [Required, Compare(nameof(Password))] public string ConfirmPassword { get; set; } = "";

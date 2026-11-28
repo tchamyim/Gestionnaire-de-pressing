@@ -6,11 +6,13 @@ using Pressings.Services;
 
 namespace Pressings.Controllers;
 
-[Authorize(Roles = "staff")]
+[Authorize]
 public sealed class DashboardController(AccessRepository repository) : Controller
 {
+    [Authorize(Policy = StaffPolicies.Dashboard)]
     public IActionResult Index() => View(repository.GetDashboard());
 
+    [Authorize(Policy = StaffPolicies.FinancialReports)]
     [HttpGet]
     public IActionResult ClosingReport(DateTime? date)
     {
@@ -18,13 +20,14 @@ public sealed class DashboardController(AccessRepository repository) : Controlle
         return View(report);
     }
 
+    [Authorize(Policy = StaffPolicies.FinancialReports)]
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Movement(CashMovementInput input)
     {
         if (!ModelState.IsValid)
         {
             TempData["Error"] = "Vérifiez le montant et le motif du mouvement de caisse.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(ClosingReport));
         }
         try
         {
@@ -32,7 +35,7 @@ public sealed class DashboardController(AccessRepository repository) : Controlle
             TempData["Success"] = "Mouvement de caisse enregistré.";
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(ClosingReport));
     }
 
     private int CurrentUserId() => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;

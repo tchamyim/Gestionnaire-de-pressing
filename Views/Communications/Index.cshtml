@@ -1,6 +1,7 @@
 @model CommunicationsInboxViewModel
 @{
     ViewData["Title"] = "Boîte de messagerie";
+    var canConfigureEmail = StaffPolicies.IsManagerOrAdmin(User);
 }
 <div class="page-heading communication-heading">
     <div>
@@ -9,10 +10,13 @@
         <p>Discutez en direct avec vos clients, envoyez des e-mails libres ou prévenez-les quand leurs vêtements sont prêts.</p>
     </div>
     <div class="heading-actions">
+        @if (canConfigureEmail)
+        {
         <button type="button" class="button button-outline button-small" onclick="document.getElementById('staffSmtpModal').classList.add('open')">
             ⚙ @(Model.EmailConfigured ? "Configurer l'e-mail (Actif)" : "Configurer l'e-mail")
         </button>
-        <span class="communication-shield">🔒 Espace gérant</span>
+        }
+        <span class="communication-shield">🔒 Espace professionnel</span>
     </div>
 </div>
 
@@ -22,7 +26,7 @@
 }
 else
 {
-    <div class="notice notice-warm notice-spaced">L’envoi SMTP direct n’est pas encore configuré. La messagerie interne fonctionne à 100 %, et vous pouvez configurer vos e-mails via le bouton « ⚙ Configurer l'e-mail » ci-dessus.</div>
+    <div class="notice notice-warm notice-spaced">L’envoi SMTP direct n’est pas encore configuré. La messagerie interne fonctionne ; @(canConfigureEmail ? "configurez l’envoi dans les paramètres ci-dessus." : "demandez au responsable de configurer l’envoi ou préparez un brouillon dans Gmail.")</div>
 }
 
 <div class="comm-top-grid">
@@ -108,7 +112,14 @@ else
                 }
                 else
                 {
-                    <button type="button" class="button button-primary" onclick="document.getElementById('staffSmtpModal').classList.add('open')">⚙ Configurer pour envoyer</button>
+                    @if (canConfigureEmail)
+                    {
+                        <button type="button" class="button button-primary" onclick="document.getElementById('staffSmtpModal').classList.add('open')">⚙ Configurer pour envoyer</button>
+                    }
+                    else
+                    {
+                        <span class="field-hint">Demandez au responsable de configurer le SMTP pour activer l’envoi direct.</span>
+                    }
                 }
                 <button type="button" class="button button-outline" onclick="openGmailFree()">Ouvrir dans Gmail</button>
             </div>
@@ -164,7 +175,9 @@ else
     }
 </section>
 
-<!-- Modal Configuration SMTP Gérant -->
+@if (canConfigureEmail)
+{
+<!-- Modal Configuration SMTP -->
 <div class="smtp-modal-overlay" id="staffSmtpModal" onclick="if(event.target===this)this.classList.remove('open')">
     <div class="smtp-modal smtp-modal-pro">
         <div class="smtp-modal-head">
@@ -205,6 +218,7 @@ else
         </form>
     </div>
 </div>
+}
 
 <script>
 function fillFreeEmailClient(select) {

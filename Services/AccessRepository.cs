@@ -69,11 +69,12 @@ public sealed class AccessRepository
         using var connection = OpenAccess();
         var tables = new[]
         {
-            "CREATE TABLE [AdminUsers] ([AdminUserID] COUNTER PRIMARY KEY, [Email] TEXT(255) NOT NULL, [PasswordHash] TEXT(255) NOT NULL, [CreatedAt] DATETIME NOT NULL)",
+            "CREATE TABLE [AdminUsers] ([AdminUserID] COUNTER PRIMARY KEY, [Email] TEXT(255) NOT NULL, [PasswordHash] TEXT(255) NOT NULL, [CreatedAt] DATETIME NOT NULL, [DisplayName] TEXT(120), [IsActive] YESNO)",
+            "CREATE TABLE [AdminUserRoles] ([AdminUserRoleID] COUNTER PRIMARY KEY, [AdminUserID] LONG NOT NULL, [RoleCode] TEXT(40) NOT NULL)",
             "CREATE TABLE [Clients] ([ClientID] COUNTER PRIMARY KEY, [LastName] TEXT(100) NOT NULL, [FirstName] TEXT(100) NOT NULL, [Phone] TEXT(30) NOT NULL, [WhatsApp] TEXT(30), [Email] TEXT(255), [PortalPinHash] TEXT(255), [CreatedAt] DATETIME NOT NULL, [IsActive] YESNO NOT NULL)",
             "CREATE TABLE [TariffCategories] ([CategoryID] COUNTER PRIMARY KEY, [CategoryName] TEXT(100) NOT NULL, [BasePrice] CURRENCY NOT NULL, [ExpressPercent] DOUBLE NOT NULL, [IsActive] YESNO NOT NULL, [SortOrder] INTEGER NOT NULL)",
             "CREATE TABLE [Orders] ([OrderID] COUNTER PRIMARY KEY, [TicketNo] TEXT(40) NOT NULL, [ClientID] LONG NOT NULL, [CreatedAt] DATETIME NOT NULL, [OrderStatus] TEXT(30) NOT NULL, [Notes] TEXT(255))",
-            "CREATE TABLE [OrderItems] ([ItemID] COUNTER PRIMARY KEY, [OrderID] LONG NOT NULL, [CategoryID] LONG NOT NULL, [Description] TEXT(150), [UnitPrice] CURRENCY NOT NULL, [ExpressFee] CURRENCY NOT NULL, [IsExpress] YESNO NOT NULL, [DepositAt] DATETIME NOT NULL, [ExpectedPickupAt] DATETIME, [WithdrawnAt] DATETIME, [ItemStatus] TEXT(30) NOT NULL, [Notes] TEXT(255))",
+            "CREATE TABLE [OrderItems] ([ItemID] COUNTER PRIMARY KEY, [OrderID] LONG NOT NULL, [CategoryID] LONG NOT NULL, [Description] TEXT(150), [UnitPrice] CURRENCY NOT NULL, [ExpressFee] CURRENCY NOT NULL, [IsExpress] YESNO NOT NULL, [DepositAt] DATETIME NOT NULL, [ExpectedPickupAt] DATETIME, [WithdrawnAt] DATETIME, [ItemStatus] TEXT(30) NOT NULL, [Notes] TEXT(255), [AssignedToUserID] LONG)",
             "CREATE TABLE [Payments] ([PaymentID] COUNTER PRIMARY KEY, [OrderID] LONG NOT NULL, [ClientID] LONG NOT NULL, [Amount] CURRENCY NOT NULL, [PaymentAt] DATETIME NOT NULL, [PaymentMethod] TEXT(30) NOT NULL, [Reference] TEXT(100), [ReceiptNo] TEXT(40) NOT NULL, [RecordedBy] LONG)",
             "CREATE TABLE [CashMovements] ([CashMovementID] COUNTER PRIMARY KEY, [PaymentID] LONG, [Direction] TEXT(10) NOT NULL, [Amount] CURRENCY NOT NULL, [Description] TEXT(150) NOT NULL, [CreatedAt] DATETIME NOT NULL, [RecordedBy] LONG)",
             "CREATE TABLE [ActivityLog] ([ActivityID] COUNTER PRIMARY KEY, [ClientID] LONG, [OrderID] LONG, [ItemID] LONG, [AdminUserID] LONG, [EventType] TEXT(40) NOT NULL, [Details] TEXT(255), [EventAt] DATETIME NOT NULL)",
@@ -81,13 +82,18 @@ public sealed class AccessRepository
             "CREATE TABLE [ClientMessages] ([MessageID] COUNTER PRIMARY KEY, [ClientID] LONG NOT NULL, [OrderID] LONG, [SenderRole] TEXT(10) NOT NULL, [SenderUserID] LONG, [Subject] TEXT(160) NOT NULL, [Body] MEMO NOT NULL, [SentAt] DATETIME NOT NULL, [IsRead] YESNO NOT NULL)",
             "CREATE TABLE [InventoryItems] ([InventoryItemID] COUNTER PRIMARY KEY, [Name] TEXT(100) NOT NULL, [Unit] TEXT(24) NOT NULL, [QuantityOnHand] DOUBLE NOT NULL, [ReorderAt] DOUBLE NOT NULL, [UnitCost] CURRENCY NOT NULL, [UpdatedAt] DATETIME NOT NULL, [IsActive] YESNO NOT NULL)",
             "CREATE TABLE [InventoryTransactions] ([InventoryTransactionID] COUNTER PRIMARY KEY, [InventoryItemID] LONG NOT NULL, [Direction] TEXT(10) NOT NULL, [Quantity] DOUBLE NOT NULL, [UnitCost] CURRENCY, [Reason] TEXT(150) NOT NULL, [AdminUserID] LONG, [CreatedAt] DATETIME NOT NULL)",
+            "CREATE TABLE [OrderIncidents] ([IncidentID] COUNTER PRIMARY KEY, [OrderID] LONG NOT NULL, [ItemID] LONG, [ReportedByUserID] LONG, [Category] TEXT(50) NOT NULL, [Description] TEXT(255) NOT NULL, [Status] TEXT(30) NOT NULL, [Resolution] MEMO, [CreatedAt] DATETIME NOT NULL, [ResolvedByUserID] LONG, [ClosedAt] DATETIME)",
             "CREATE TABLE [AppSettings] ([SettingKey] TEXT(100) NOT NULL, [SettingValue] TEXT(255))"
+            ,"CREATE TABLE [DeliveryMissions] ([MissionID] COUNTER PRIMARY KEY, [ClientID] LONG NOT NULL, [OrderID] LONG, [Direction] TEXT(20) NOT NULL, [AssignedToUserID] LONG, [Status] TEXT(30) NOT NULL, [Address] TEXT(255) NOT NULL, [ScheduledAt] DATETIME, [Notes] TEXT(255), [Proof] TEXT(255), [CreatedBy] LONG, [CreatedAt] DATETIME NOT NULL, [CompletedAt] DATETIME)"
         };
 
         foreach (var sql in tables)
             EnsureTable(connection, sql, TableName(sql));
 
         EnsureIndex(connection, "UX_AdminUsers_Email", "CREATE UNIQUE INDEX [UX_AdminUsers_Email] ON [AdminUsers] ([Email])");
+        EnsureIndex(connection, "UX_AdminUserRoles_User_Role", "CREATE UNIQUE INDEX [UX_AdminUserRoles_User_Role] ON [AdminUserRoles] ([AdminUserID], [RoleCode])");
+        EnsureIndex(connection, "IX_DeliveryMissions_Assignee_Status", "CREATE INDEX [IX_DeliveryMissions_Assignee_Status] ON [DeliveryMissions] ([AssignedToUserID], [Status])");
+        EnsureIndex(connection, "IX_OrderIncidents_Status_Created", "CREATE INDEX [IX_OrderIncidents_Status_Created] ON [OrderIncidents] ([Status], [CreatedAt])");
         EnsureIndex(connection, "UX_Orders_TicketNo", "CREATE UNIQUE INDEX [UX_Orders_TicketNo] ON [Orders] ([TicketNo])");
         EnsureIndex(connection, "UX_AppSettings_Key", "CREATE UNIQUE INDEX [UX_AppSettings_Key] ON [AppSettings] ([SettingKey])");
         EnsureIndex(connection, "IX_ClientMessages_Client_Sent", "CREATE INDEX [IX_ClientMessages_Client_Sent] ON [ClientMessages] ([ClientID], [SentAt], [MessageID])");
@@ -118,6 +124,13 @@ public sealed class AccessRepository
         EnsureColumn(connection, "ALTER TABLE [Orders] ADD COLUMN [DiscountAmount] CURRENCY");
         EnsureColumn(connection, "ALTER TABLE [OrderItems] ADD COLUMN [ConditionNotes] TEXT(255)");
         EnsureColumn(connection, "ALTER TABLE [OrderItems] ADD COLUMN [StorageLocation] TEXT(60)");
+        EnsureColumn(connection, "ALTER TABLE [OrderItems] ADD COLUMN [AssignedToUserID] LONG");
+        EnsureColumn(connection, "ALTER TABLE [AdminUsers] ADD COLUMN [DisplayName] TEXT(120)");
+        EnsureColumn(connection, "ALTER TABLE [AdminUsers] ADD COLUMN [IsActive] YESNO");
+        EnsureColumn(connection, "ALTER TABLE [Clients] ADD COLUMN [Address] TEXT(255)");
+        Execute(connection, null, "UPDATE [AdminUsers] SET [DisplayName]=[Email] WHERE [DisplayName] IS NULL OR [DisplayName]=''");
+        Execute(connection, null, "UPDATE [AdminUsers] SET [IsActive]=True WHERE [IsActive] IS NULL");
+        SeedLegacyStaffRoles();
 
         SetDefaultSetting(connection, "Brand", "Fresh & Care");
         SetDefaultSetting(connection, "Currency", "FCFA");
@@ -128,11 +141,12 @@ public sealed class AccessRepository
         using var connection = Open();
         var schema = new[]
         {
-            "IF OBJECT_ID(N'dbo.AdminUsers', N'U') IS NULL CREATE TABLE [dbo].[AdminUsers] ([AdminUserID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [Email] NVARCHAR(255) NOT NULL, [PasswordHash] NVARCHAR(255) NOT NULL, [CreatedAt] DATETIME2 NOT NULL)",
+            "IF OBJECT_ID(N'dbo.AdminUsers', N'U') IS NULL CREATE TABLE [dbo].[AdminUsers] ([AdminUserID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [Email] NVARCHAR(255) NOT NULL, [PasswordHash] NVARCHAR(255) NOT NULL, [CreatedAt] DATETIME2 NOT NULL, [DisplayName] NVARCHAR(120) NULL, [IsActive] BIT NOT NULL CONSTRAINT [DF_AdminUsers_IsActive] DEFAULT 1)",
+            "IF OBJECT_ID(N'dbo.AdminUserRoles', N'U') IS NULL CREATE TABLE [dbo].[AdminUserRoles] ([AdminUserRoleID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [AdminUserID] INT NOT NULL, [RoleCode] NVARCHAR(40) NOT NULL)",
             "IF OBJECT_ID(N'dbo.Clients', N'U') IS NULL CREATE TABLE [dbo].[Clients] ([ClientID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [LastName] NVARCHAR(100) NOT NULL, [FirstName] NVARCHAR(100) NOT NULL, [Phone] NVARCHAR(30) NOT NULL, [WhatsApp] NVARCHAR(30) NULL, [Email] NVARCHAR(255) NULL, [PortalPinHash] NVARCHAR(255) NULL, [CreatedAt] DATETIME2 NOT NULL, [IsActive] BIT NOT NULL)",
             "IF OBJECT_ID(N'dbo.TariffCategories', N'U') IS NULL CREATE TABLE [dbo].[TariffCategories] ([CategoryID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [CategoryName] NVARCHAR(100) NOT NULL, [BasePrice] DECIMAL(19,4) NOT NULL, [ExpressPercent] DECIMAL(9,3) NOT NULL, [IsActive] BIT NOT NULL, [SortOrder] INT NOT NULL)",
             "IF OBJECT_ID(N'dbo.Orders', N'U') IS NULL CREATE TABLE [dbo].[Orders] ([OrderID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [TicketNo] NVARCHAR(40) NOT NULL, [ClientID] INT NOT NULL CONSTRAINT [FK_Orders_Clients] REFERENCES [dbo].[Clients]([ClientID]), [CreatedAt] DATETIME2 NOT NULL, [OrderStatus] NVARCHAR(30) NOT NULL, [Notes] NVARCHAR(255) NULL)",
-            "IF OBJECT_ID(N'dbo.OrderItems', N'U') IS NULL CREATE TABLE [dbo].[OrderItems] ([ItemID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [OrderID] INT NOT NULL CONSTRAINT [FK_Items_Orders] REFERENCES [dbo].[Orders]([OrderID]), [CategoryID] INT NOT NULL CONSTRAINT [FK_Items_Tariffs] REFERENCES [dbo].[TariffCategories]([CategoryID]), [Description] NVARCHAR(150) NULL, [UnitPrice] DECIMAL(19,4) NOT NULL, [ExpressFee] DECIMAL(19,4) NOT NULL, [IsExpress] BIT NOT NULL, [DepositAt] DATETIME2 NOT NULL, [ExpectedPickupAt] DATETIME2 NULL, [WithdrawnAt] DATETIME2 NULL, [ItemStatus] NVARCHAR(30) NOT NULL, [Notes] NVARCHAR(255) NULL)",
+            "IF OBJECT_ID(N'dbo.OrderItems', N'U') IS NULL CREATE TABLE [dbo].[OrderItems] ([ItemID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [OrderID] INT NOT NULL CONSTRAINT [FK_Items_Orders] REFERENCES [dbo].[Orders]([OrderID]), [CategoryID] INT NOT NULL CONSTRAINT [FK_Items_Tariffs] REFERENCES [dbo].[TariffCategories]([CategoryID]), [Description] NVARCHAR(150) NULL, [UnitPrice] DECIMAL(19,4) NOT NULL, [ExpressFee] DECIMAL(19,4) NOT NULL, [IsExpress] BIT NOT NULL, [DepositAt] DATETIME2 NOT NULL, [ExpectedPickupAt] DATETIME2 NULL, [WithdrawnAt] DATETIME2 NULL, [ItemStatus] NVARCHAR(30) NOT NULL, [Notes] NVARCHAR(255) NULL, [AssignedToUserID] INT NULL)",
             "IF OBJECT_ID(N'dbo.Payments', N'U') IS NULL CREATE TABLE [dbo].[Payments] ([PaymentID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [OrderID] INT NOT NULL CONSTRAINT [FK_Payments_Orders] REFERENCES [dbo].[Orders]([OrderID]), [ClientID] INT NOT NULL CONSTRAINT [FK_Payments_Clients] REFERENCES [dbo].[Clients]([ClientID]), [Amount] DECIMAL(19,4) NOT NULL, [PaymentAt] DATETIME2 NOT NULL, [PaymentMethod] NVARCHAR(30) NOT NULL, [Reference] NVARCHAR(100) NULL, [ReceiptNo] NVARCHAR(40) NOT NULL, [RecordedBy] INT NULL)",
             "IF OBJECT_ID(N'dbo.CashMovements', N'U') IS NULL CREATE TABLE [dbo].[CashMovements] ([CashMovementID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [PaymentID] INT NULL, [Direction] NVARCHAR(10) NOT NULL, [Amount] DECIMAL(19,4) NOT NULL, [Description] NVARCHAR(150) NOT NULL, [CreatedAt] DATETIME2 NOT NULL, [RecordedBy] INT NULL)",
             "IF OBJECT_ID(N'dbo.ActivityLog', N'U') IS NULL CREATE TABLE [dbo].[ActivityLog] ([ActivityID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [ClientID] INT NULL, [OrderID] INT NULL, [ItemID] INT NULL, [AdminUserID] INT NULL, [EventType] NVARCHAR(40) NOT NULL, [Details] NVARCHAR(255) NULL, [EventAt] DATETIME2 NOT NULL)",
@@ -140,11 +154,14 @@ public sealed class AccessRepository
             "IF OBJECT_ID(N'dbo.ClientMessages', N'U') IS NULL CREATE TABLE [dbo].[ClientMessages] ([MessageID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [ClientID] INT NOT NULL, [OrderID] INT NULL, [SenderRole] NVARCHAR(10) NOT NULL, [SenderUserID] INT NULL, [Subject] NVARCHAR(160) NOT NULL, [Body] NVARCHAR(MAX) NOT NULL, [SentAt] DATETIME2 NOT NULL, [IsRead] BIT NOT NULL)",
             "IF OBJECT_ID(N'dbo.InventoryItems', N'U') IS NULL CREATE TABLE [dbo].[InventoryItems] ([InventoryItemID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [Name] NVARCHAR(100) NOT NULL, [Unit] NVARCHAR(24) NOT NULL, [QuantityOnHand] DECIMAL(18,3) NOT NULL, [ReorderAt] DECIMAL(18,3) NOT NULL, [UnitCost] DECIMAL(19,4) NOT NULL, [UpdatedAt] DATETIME2 NOT NULL, [IsActive] BIT NOT NULL)",
             "IF OBJECT_ID(N'dbo.InventoryTransactions', N'U') IS NULL CREATE TABLE [dbo].[InventoryTransactions] ([InventoryTransactionID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [InventoryItemID] INT NOT NULL, [Direction] NVARCHAR(10) NOT NULL, [Quantity] DECIMAL(18,3) NOT NULL, [UnitCost] DECIMAL(19,4) NULL, [Reason] NVARCHAR(150) NOT NULL, [AdminUserID] INT NULL, [CreatedAt] DATETIME2 NOT NULL)",
+            "IF OBJECT_ID(N'dbo.OrderIncidents', N'U') IS NULL CREATE TABLE [dbo].[OrderIncidents] ([IncidentID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [OrderID] INT NOT NULL, [ItemID] INT NULL, [ReportedByUserID] INT NULL, [Category] NVARCHAR(50) NOT NULL, [Description] NVARCHAR(255) NOT NULL, [Status] NVARCHAR(30) NOT NULL, [Resolution] NVARCHAR(MAX) NULL, [CreatedAt] DATETIME2 NOT NULL, [ResolvedByUserID] INT NULL, [ClosedAt] DATETIME2 NULL)",
             "IF OBJECT_ID(N'dbo.AppSettings', N'U') IS NULL CREATE TABLE [dbo].[AppSettings] ([SettingKey] NVARCHAR(100) NOT NULL PRIMARY KEY, [SettingValue] NVARCHAR(255) NULL)",
+            "IF OBJECT_ID(N'dbo.DeliveryMissions', N'U') IS NULL CREATE TABLE [dbo].[DeliveryMissions] ([MissionID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY, [ClientID] INT NOT NULL, [OrderID] INT NULL, [Direction] NVARCHAR(20) NOT NULL, [AssignedToUserID] INT NULL, [Status] NVARCHAR(30) NOT NULL, [Address] NVARCHAR(255) NOT NULL, [ScheduledAt] DATETIME2 NULL, [Notes] NVARCHAR(255) NULL, [Proof] NVARCHAR(255) NULL, [CreatedBy] INT NULL, [CreatedAt] DATETIME2 NOT NULL, [CompletedAt] DATETIME2 NULL)",
             "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name]=N'UX_AdminUsers_Email' AND [object_id]=OBJECT_ID(N'dbo.AdminUsers')) CREATE UNIQUE INDEX [UX_AdminUsers_Email] ON [dbo].[AdminUsers] ([Email])",
             "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name]=N'UX_Orders_TicketNo' AND [object_id]=OBJECT_ID(N'dbo.Orders')) CREATE UNIQUE INDEX [UX_Orders_TicketNo] ON [dbo].[Orders] ([TicketNo])",
             "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name]=N'IX_ClientMessages_Client_Sent' AND [object_id]=OBJECT_ID(N'dbo.ClientMessages')) CREATE INDEX [IX_ClientMessages_Client_Sent] ON [dbo].[ClientMessages] ([ClientID], [SentAt], [MessageID])",
-            "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name]=N'IX_ClientMessages_Unread' AND [object_id]=OBJECT_ID(N'dbo.ClientMessages')) CREATE INDEX [IX_ClientMessages_Unread] ON [dbo].[ClientMessages] ([ClientID], [SenderRole], [IsRead])"
+            "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name]=N'IX_ClientMessages_Unread' AND [object_id]=OBJECT_ID(N'dbo.ClientMessages')) CREATE INDEX [IX_ClientMessages_Unread] ON [dbo].[ClientMessages] ([ClientID], [SenderRole], [IsRead])",
+            "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE [name]=N'IX_OrderIncidents_Status_Created' AND [object_id]=OBJECT_ID(N'dbo.OrderIncidents')) CREATE INDEX [IX_OrderIncidents_Status_Created] ON [dbo].[OrderIncidents] ([Status], [CreatedAt])"
         };
         foreach (var statement in schema) Execute(connection, null, statement);
 
@@ -166,6 +183,12 @@ public sealed class AccessRepository
         EnsureColumn(connection, "IF COL_LENGTH(N'dbo.Orders', N'DiscountAmount') IS NULL ALTER TABLE [dbo].[Orders] ADD [DiscountAmount] DECIMAL(19,4) NULL");
         EnsureColumn(connection, "IF COL_LENGTH(N'dbo.OrderItems', N'ConditionNotes') IS NULL ALTER TABLE [dbo].[OrderItems] ADD [ConditionNotes] NVARCHAR(255) NULL");
         EnsureColumn(connection, "IF COL_LENGTH(N'dbo.OrderItems', N'StorageLocation') IS NULL ALTER TABLE [dbo].[OrderItems] ADD [StorageLocation] NVARCHAR(60) NULL");
+        EnsureColumn(connection, "IF COL_LENGTH(N'dbo.OrderItems', N'AssignedToUserID') IS NULL ALTER TABLE [dbo].[OrderItems] ADD [AssignedToUserID] INT NULL");
+        EnsureColumn(connection, "IF COL_LENGTH(N'dbo.AdminUsers', N'DisplayName') IS NULL ALTER TABLE [dbo].[AdminUsers] ADD [DisplayName] NVARCHAR(120) NULL");
+        EnsureColumn(connection, "IF COL_LENGTH(N'dbo.AdminUsers', N'IsActive') IS NULL ALTER TABLE [dbo].[AdminUsers] ADD [IsActive] BIT NOT NULL CONSTRAINT [DF_AdminUsers_IsActive] DEFAULT 1");
+        EnsureColumn(connection, "IF COL_LENGTH(N'dbo.Clients', N'Address') IS NULL ALTER TABLE [dbo].[Clients] ADD [Address] NVARCHAR(255) NULL");
+        Execute(connection, null, "UPDATE [dbo].[AdminUsers] SET [DisplayName]=[Email] WHERE [DisplayName] IS NULL OR [DisplayName]=N''");
+        SeedLegacyStaffRoles();
 
         SetDefaultSetting(connection, "Brand", "Fresh & Care");
         SetDefaultSetting(connection, "Currency", "FCFA");
@@ -176,11 +199,12 @@ public sealed class AccessRepository
         using var connection = Open();
         var schema = new[]
         {
-            "CREATE TABLE IF NOT EXISTS [AdminUsers] ([AdminUserID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [Email] VARCHAR(255) NOT NULL, [PasswordHash] VARCHAR(255) NOT NULL, [CreatedAt] DATETIME(6) NOT NULL, UNIQUE KEY [UX_AdminUsers_Email] ([Email])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS [AdminUsers] ([AdminUserID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [Email] VARCHAR(255) NOT NULL, [PasswordHash] VARCHAR(255) NOT NULL, [CreatedAt] DATETIME(6) NOT NULL, [DisplayName] VARCHAR(120) NULL, [IsActive] TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY [UX_AdminUsers_Email] ([Email])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS [AdminUserRoles] ([AdminUserRoleID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [AdminUserID] INT NOT NULL, [RoleCode] VARCHAR(40) NOT NULL, UNIQUE KEY [UX_AdminUserRoles_User_Role] ([AdminUserID], [RoleCode])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [Clients] ([ClientID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [LastName] VARCHAR(100) NOT NULL, [FirstName] VARCHAR(100) NOT NULL, [Phone] VARCHAR(30) NOT NULL, [WhatsApp] VARCHAR(30) NULL, [Email] VARCHAR(255) NULL, [PortalPinHash] VARCHAR(255) NULL, [CreatedAt] DATETIME(6) NOT NULL, [IsActive] TINYINT(1) NOT NULL, KEY [IX_Clients_Phone] ([Phone])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [TariffCategories] ([CategoryID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [CategoryName] VARCHAR(100) NOT NULL, [BasePrice] DECIMAL(19,4) NOT NULL, [ExpressPercent] DOUBLE NOT NULL, [IsActive] TINYINT(1) NOT NULL, [SortOrder] INT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [Orders] ([OrderID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [TicketNo] VARCHAR(40) NOT NULL, [ClientID] INT NOT NULL, [CreatedAt] DATETIME(6) NOT NULL, [OrderStatus] VARCHAR(30) NOT NULL, [Notes] VARCHAR(255) NULL, UNIQUE KEY [UX_Orders_TicketNo] ([TicketNo]), KEY [IX_Orders_ClientID] ([ClientID]), CONSTRAINT [FK_Orders_Clients] FOREIGN KEY ([ClientID]) REFERENCES [Clients]([ClientID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-            "CREATE TABLE IF NOT EXISTS [OrderItems] ([ItemID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [OrderID] INT NOT NULL, [CategoryID] INT NOT NULL, [Description] VARCHAR(150) NULL, [UnitPrice] DECIMAL(19,4) NOT NULL, [ExpressFee] DECIMAL(19,4) NOT NULL, [IsExpress] TINYINT(1) NOT NULL, [DepositAt] DATETIME(6) NOT NULL, [ExpectedPickupAt] DATETIME(6) NULL, [WithdrawnAt] DATETIME(6) NULL, [ItemStatus] VARCHAR(30) NOT NULL, [Notes] VARCHAR(255) NULL, KEY [IX_OrderItems_OrderID] ([OrderID]), CONSTRAINT [FK_Items_Orders] FOREIGN KEY ([OrderID]) REFERENCES [Orders]([OrderID]), CONSTRAINT [FK_Items_Tariffs] FOREIGN KEY ([CategoryID]) REFERENCES [TariffCategories]([CategoryID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS [OrderItems] ([ItemID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [OrderID] INT NOT NULL, [CategoryID] INT NOT NULL, [Description] VARCHAR(150) NULL, [UnitPrice] DECIMAL(19,4) NOT NULL, [ExpressFee] DECIMAL(19,4) NOT NULL, [IsExpress] TINYINT(1) NOT NULL, [DepositAt] DATETIME(6) NOT NULL, [ExpectedPickupAt] DATETIME(6) NULL, [WithdrawnAt] DATETIME(6) NULL, [ItemStatus] VARCHAR(30) NOT NULL, [Notes] VARCHAR(255) NULL, [AssignedToUserID] INT NULL, KEY [IX_OrderItems_OrderID] ([OrderID]), CONSTRAINT [FK_Items_Orders] FOREIGN KEY ([OrderID]) REFERENCES [Orders]([OrderID]), CONSTRAINT [FK_Items_Tariffs] FOREIGN KEY ([CategoryID]) REFERENCES [TariffCategories]([CategoryID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [Payments] ([PaymentID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [OrderID] INT NOT NULL, [ClientID] INT NOT NULL, [Amount] DECIMAL(19,4) NOT NULL, [PaymentAt] DATETIME(6) NOT NULL, [PaymentMethod] VARCHAR(30) NOT NULL, [Reference] VARCHAR(100) NULL, [ReceiptNo] VARCHAR(40) NOT NULL, [RecordedBy] INT NULL, KEY [IX_Payments_OrderID] ([OrderID]), CONSTRAINT [FK_Payments_Orders] FOREIGN KEY ([OrderID]) REFERENCES [Orders]([OrderID]), CONSTRAINT [FK_Payments_Clients] FOREIGN KEY ([ClientID]) REFERENCES [Clients]([ClientID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [CashMovements] ([CashMovementID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [PaymentID] INT NULL, [Direction] VARCHAR(10) NOT NULL, [Amount] DECIMAL(19,4) NOT NULL, [Description] VARCHAR(150) NOT NULL, [CreatedAt] DATETIME(6) NOT NULL, [RecordedBy] INT NULL, CONSTRAINT [FK_CashMovements_Payments] FOREIGN KEY ([PaymentID]) REFERENCES [Payments]([PaymentID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [ActivityLog] ([ActivityID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [ClientID] INT NULL, [OrderID] INT NULL, [ItemID] INT NULL, [AdminUserID] INT NULL, [EventType] VARCHAR(40) NOT NULL, [Details] VARCHAR(255) NULL, [EventAt] DATETIME(6) NOT NULL, KEY [IX_ActivityLog_ClientID] ([ClientID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -188,7 +212,9 @@ public sealed class AccessRepository
             "CREATE TABLE IF NOT EXISTS [ClientMessages] ([MessageID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [ClientID] INT NOT NULL, [OrderID] INT NULL, [SenderRole] VARCHAR(10) NOT NULL, [SenderUserID] INT NULL, [Subject] VARCHAR(160) NOT NULL, [Body] TEXT NOT NULL, [SentAt] DATETIME(6) NOT NULL, [IsRead] TINYINT(1) NOT NULL, KEY [IX_ClientMessages_Client_Sent] ([ClientID], [SentAt], [MessageID]), KEY [IX_ClientMessages_Unread] ([ClientID], [SenderRole], [IsRead])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [InventoryItems] ([InventoryItemID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [Name] VARCHAR(100) NOT NULL, [Unit] VARCHAR(24) NOT NULL, [QuantityOnHand] DECIMAL(18,3) NOT NULL, [ReorderAt] DECIMAL(18,3) NOT NULL, [UnitCost] DECIMAL(19,4) NOT NULL, [UpdatedAt] DATETIME(6) NOT NULL, [IsActive] TINYINT(1) NOT NULL, KEY [IX_InventoryItems_IsActive] ([IsActive])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [InventoryTransactions] ([InventoryTransactionID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [InventoryItemID] INT NOT NULL, [Direction] VARCHAR(10) NOT NULL, [Quantity] DECIMAL(18,3) NOT NULL, [UnitCost] DECIMAL(19,4) NULL, [Reason] VARCHAR(150) NOT NULL, [AdminUserID] INT NULL, [CreatedAt] DATETIME(6) NOT NULL, KEY [IX_InventoryTransactions_Item_Created] ([InventoryItemID], [CreatedAt]), CONSTRAINT [FK_InventoryTransactions_Items] FOREIGN KEY ([InventoryItemID]) REFERENCES [InventoryItems]([InventoryItemID])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS [OrderIncidents] ([IncidentID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [OrderID] INT NOT NULL, [ItemID] INT NULL, [ReportedByUserID] INT NULL, [Category] VARCHAR(50) NOT NULL, [Description] VARCHAR(255) NOT NULL, [Status] VARCHAR(30) NOT NULL, [Resolution] TEXT NULL, [CreatedAt] DATETIME(6) NOT NULL, [ResolvedByUserID] INT NULL, [ClosedAt] DATETIME(6) NULL, KEY [IX_OrderIncidents_Status_Created] ([Status], [CreatedAt])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS [AppSettings] ([SettingKey] VARCHAR(100) NOT NULL PRIMARY KEY, [SettingValue] VARCHAR(255) NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            ,"CREATE TABLE IF NOT EXISTS [DeliveryMissions] ([MissionID] INT NOT NULL AUTO_INCREMENT PRIMARY KEY, [ClientID] INT NOT NULL, [OrderID] INT NULL, [Direction] VARCHAR(20) NOT NULL, [AssignedToUserID] INT NULL, [Status] VARCHAR(30) NOT NULL, [Address] VARCHAR(255) NOT NULL, [ScheduledAt] DATETIME(6) NULL, [Notes] VARCHAR(255) NULL, [Proof] VARCHAR(255) NULL, [CreatedBy] INT NULL, [CreatedAt] DATETIME(6) NOT NULL, [CompletedAt] DATETIME(6) NULL, KEY [IX_DeliveryMissions_Assignee_Status] ([AssignedToUserID], [Status])) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         };
         foreach (var statement in schema) Execute(connection, null, statement);
         EnsureMySqlIndex(connection, "ClientMessages", "IX_ClientMessages_Client_Sent",
@@ -214,6 +240,12 @@ public sealed class AccessRepository
         EnsureColumn(connection, "ALTER TABLE `Orders` ADD COLUMN `DiscountAmount` DECIMAL(19,4) NULL");
         EnsureColumn(connection, "ALTER TABLE `OrderItems` ADD COLUMN `ConditionNotes` VARCHAR(255) NULL");
         EnsureColumn(connection, "ALTER TABLE `OrderItems` ADD COLUMN `StorageLocation` VARCHAR(60) NULL");
+        EnsureColumn(connection, "ALTER TABLE `OrderItems` ADD COLUMN `AssignedToUserID` INT NULL");
+        EnsureColumn(connection, "ALTER TABLE `AdminUsers` ADD COLUMN `DisplayName` VARCHAR(120) NULL");
+        EnsureColumn(connection, "ALTER TABLE `AdminUsers` ADD COLUMN `IsActive` TINYINT(1) NOT NULL DEFAULT 1");
+        EnsureColumn(connection, "ALTER TABLE `Clients` ADD COLUMN `Address` VARCHAR(255) NULL");
+        Execute(connection, null, "UPDATE [AdminUsers] SET [DisplayName]=[Email] WHERE [DisplayName] IS NULL OR [DisplayName]=''");
+        SeedLegacyStaffRoles();
 
         SetDefaultSetting(connection, "Brand", "Fresh & Care");
         SetDefaultSetting(connection, "Currency", "FCFA");
@@ -315,6 +347,19 @@ public sealed class AccessRepository
     {
         if (Scalar<int>(connection, null, "SELECT COUNT(*) FROM [AppSettings] WHERE [SettingKey]=?", key) == 0)
             Execute(connection, null, "INSERT INTO [AppSettings] ([SettingKey], [SettingValue]) VALUES (?, ?)", key, value);
+    }
+
+    private void SeedLegacyStaffRoles()
+    {
+        var usersWithoutRoles = Query(
+            "SELECT [AdminUserID] FROM [AdminUsers] u WHERE NOT EXISTS (SELECT 1 FROM [AdminUserRoles] ur WHERE ur.[AdminUserID]=u.[AdminUserID])",
+            r => Number(r, 0));
+        if (usersWithoutRoles.Count == 0) return;
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        foreach (var userId in usersWithoutRoles)
+            Execute(connection, transaction, "INSERT INTO [AdminUserRoles] ([AdminUserID], [RoleCode]) VALUES (?, ?)", userId, "super_admin");
+        transaction.Commit();
     }
 
     private static void SetDefaultSetting(DbConnection connection, string key, string value)
@@ -439,14 +484,111 @@ public sealed class AccessRepository
     public int AdminCount() => Query("SELECT COUNT(*) FROM [AdminUsers]", r => Number(r, 0)).FirstOrDefault();
 
     public AdminAccount? FindAdmin(string email) => Query(
-        "SELECT [AdminUserID], [Email], [PasswordHash] FROM [AdminUsers] WHERE [Email]=?",
-        r => new AdminAccount { Id = Number(r, 0), Email = Text(r, 1), PasswordHash = Text(r, 2) }, email.Trim().ToLowerInvariant()).FirstOrDefault();
+        "SELECT [AdminUserID], [Email], [PasswordHash], [DisplayName], [IsActive] FROM [AdminUsers] WHERE [Email]=? AND [IsActive]=True",
+        r => new AdminAccount { Id = Number(r, 0), Email = Text(r, 1), PasswordHash = Text(r, 2), DisplayName = Text(r, 3), IsActive = Flag(r, 4) }, email.Trim().ToLowerInvariant()).FirstOrDefault();
 
-    public void CreateAdmin(string email, string passwordHash)
+    public AdminAccount? FindAdmin(int userId) => Query(
+        "SELECT [AdminUserID], [Email], [PasswordHash], [DisplayName], [IsActive] FROM [AdminUsers] WHERE [AdminUserID]=? AND [IsActive]=True",
+        r => new AdminAccount { Id = Number(r, 0), Email = Text(r, 1), PasswordHash = Text(r, 2), DisplayName = Text(r, 3), IsActive = Flag(r, 4) }, userId).FirstOrDefault();
+
+    public List<string> GetAdminRoles(int userId) => Query(
+        "SELECT [RoleCode] FROM [AdminUserRoles] WHERE [AdminUserID]=? ORDER BY [RoleCode]",
+        r => Text(r, 0), userId);
+
+    public void CreateAdmin(string email, string displayName, string passwordHash)
     {
         using var connection = Open();
-        Execute(connection, null, "INSERT INTO [AdminUsers] ([Email], [PasswordHash], [CreatedAt]) VALUES (?, ?, ?)", email.Trim().ToLowerInvariant(), passwordHash, DateTime.Now);
+        using var transaction = connection.BeginTransaction();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        Execute(connection, transaction, "INSERT INTO [AdminUsers] ([Email], [PasswordHash], [CreatedAt], [DisplayName], [IsActive]) VALUES (?, ?, ?, ?, ?)", normalizedEmail, passwordHash, DateTime.Now, displayName.Trim(), true);
+        var id = Scalar<int>(connection, transaction, "SELECT [AdminUserID] FROM [AdminUsers] WHERE [Email]=?", normalizedEmail);
+        Execute(connection, transaction, "INSERT INTO [AdminUserRoles] ([AdminUserID], [RoleCode]) VALUES (?, ?)", id, "super_admin");
+        AddEvent(connection, transaction, null, null, null, id, "compte créé", "Compte administrateur initial créé.");
+        transaction.Commit();
     }
+
+    public List<StaffUserRow> GetStaffUsers()
+    {
+        var users = Query(
+            "SELECT [AdminUserID], [DisplayName], [Email], [IsActive] FROM [AdminUsers] ORDER BY [DisplayName], [Email]",
+            r => new StaffUserRow { Id = Number(r, 0), DisplayName = Text(r, 1), Email = Text(r, 2), IsActive = Flag(r, 3) });
+        foreach (var user in users) user.RoleCodes = GetAdminRoles(user.Id);
+        return users;
+    }
+
+    public StaffUserRow? GetStaffUser(int id)
+    {
+        var user = Query(
+            "SELECT [AdminUserID], [DisplayName], [Email], [IsActive] FROM [AdminUsers] WHERE [AdminUserID]=?",
+            r => new StaffUserRow { Id = Number(r, 0), DisplayName = Text(r, 1), Email = Text(r, 2), IsActive = Flag(r, 3) }, id).FirstOrDefault();
+        if (user is not null) user.RoleCodes = GetAdminRoles(user.Id);
+        return user;
+    }
+
+    public List<StaffUserRow> GetActiveDeliveryUsers() => GetStaffUsers()
+        .Where(user => user.IsActive && user.RoleCodes.Contains("delivery", StringComparer.Ordinal))
+        .OrderBy(user => user.DisplayName).ToList();
+
+    public int ActiveSuperAdminCount() => Query(
+        "SELECT COUNT(*) FROM [AdminUsers] u INNER JOIN [AdminUserRoles] ur ON u.[AdminUserID]=ur.[AdminUserID] WHERE ur.[RoleCode]='super_admin' AND u.[IsActive]=True",
+        r => Number(r, 0)).FirstOrDefault();
+
+    public void CreateStaffUser(StaffUserInput input, string passwordHash, int actorId)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var email = input.Email.Trim().ToLowerInvariant();
+        Execute(connection, transaction, "INSERT INTO [AdminUsers] ([Email], [PasswordHash], [CreatedAt], [DisplayName], [IsActive]) VALUES (?, ?, ?, ?, ?)", email, passwordHash, DateTime.Now, input.DisplayName.Trim(), input.IsActive);
+        var id = Scalar<int>(connection, transaction, "SELECT [AdminUserID] FROM [AdminUsers] WHERE [Email]=?", email);
+        ReplaceStaffRoles(connection, transaction, id, input.RoleCodes);
+        AddEvent(connection, transaction, null, null, null, actorId, "compte créé", $"Compte employé créé : {input.DisplayName.Trim()} ({email}) — {string.Join(", ", input.RoleCodes)}.");
+        transaction.Commit();
+    }
+
+    public void UpdateStaffUser(StaffUserInput input, int actorId)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var email = input.Email.Trim().ToLowerInvariant();
+        Execute(connection, transaction, "UPDATE [AdminUsers] SET [Email]=?, [DisplayName]=?, [IsActive]=? WHERE [AdminUserID]=?", email, input.DisplayName.Trim(), input.IsActive, input.Id);
+        ReplaceStaffRoles(connection, transaction, input.Id, input.RoleCodes);
+        AddEvent(connection, transaction, null, null, null, actorId, "compte modifié", $"Compte employé mis à jour : {input.DisplayName.Trim()} ({email}) — rôles : {string.Join(", ", input.RoleCodes)} — actif : {input.IsActive}.");
+        transaction.Commit();
+    }
+
+    public void UpdateStaffPassword(int userId, string passwordHash, int actorId)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var userName = Scalar<string>(connection, transaction, "SELECT [DisplayName] FROM [AdminUsers] WHERE [AdminUserID]=?", userId);
+        if (string.IsNullOrWhiteSpace(userName)) throw new InvalidOperationException("Compte introuvable.");
+        Execute(connection, transaction, "UPDATE [AdminUsers] SET [PasswordHash]=? WHERE [AdminUserID]=?", passwordHash, userId);
+        AddEvent(connection, transaction, null, null, null, actorId, "mot de passe modifié", $"Mot de passe réinitialisé pour {userName}.");
+        transaction.Commit();
+    }
+
+    public void SetStaffActive(int userId, bool active, int actorId)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var userName = Scalar<string>(connection, transaction, "SELECT [DisplayName] FROM [AdminUsers] WHERE [AdminUserID]=?", userId);
+        if (string.IsNullOrWhiteSpace(userName)) throw new InvalidOperationException("Compte introuvable.");
+        Execute(connection, transaction, "UPDATE [AdminUsers] SET [IsActive]=? WHERE [AdminUserID]=?", active, userId);
+        AddEvent(connection, transaction, null, null, null, actorId, active ? "compte réactivé" : "compte désactivé", $"Compte employé {userName} {(active ? "réactivé" : "désactivé")}.");
+        transaction.Commit();
+    }
+
+    private static void ReplaceStaffRoles(DbConnection connection, DbTransaction transaction, int userId, IEnumerable<string> roleCodes)
+    {
+        Execute(connection, transaction, "DELETE FROM [AdminUserRoles] WHERE [AdminUserID]=?", userId);
+        foreach (var code in roleCodes.Distinct(StringComparer.Ordinal))
+            Execute(connection, transaction, "INSERT INTO [AdminUserRoles] ([AdminUserID], [RoleCode]) VALUES (?, ?)", userId, code);
+    }
+
+    public List<ActivityLogRow> GetRecentActivity(int limit = 250) => Query(
+        "SELECT a.[ActivityID], u.[DisplayName], a.[EventType], a.[Details], a.[EventAt] " +
+        "FROM [ActivityLog] a LEFT JOIN [AdminUsers] u ON a.[AdminUserID]=u.[AdminUserID] ORDER BY a.[EventAt] DESC",
+        r => new ActivityLogRow { Id = Number(r, 0), EmployeeName = Text(r, 1) is { Length: > 0 } name ? name : "Système", EventType = Text(r, 2), Details = Text(r, 3), EventAt = Date(r, 4) }).Take(Math.Clamp(limit, 1, 1000)).ToList();
 
     public List<TariffCategory> GetTariffs(bool activeOnly = false) => Query(
         "SELECT [CategoryID], [CategoryName], [BasePrice], [ExpressPercent], [IsActive] FROM [TariffCategories] " +
@@ -465,8 +607,8 @@ public sealed class AccessRepository
     public List<ClientRecord> GetClients(string? search = null)
     {
         var clients = Query(
-            "SELECT [ClientID], [FirstName], [LastName], [Phone], [WhatsApp], [Email], [CreatedAt] FROM [Clients] WHERE [IsActive]=True ORDER BY [LastName], [FirstName]",
-            r => new ClientRecord { ClientId = Number(r, 0), FirstName = Text(r, 1), LastName = Text(r, 2), Phone = Text(r, 3), WhatsApp = Text(r, 4), Email = Text(r, 5), CreatedAt = Date(r, 6) });
+            "SELECT [ClientID], [FirstName], [LastName], [Phone], [WhatsApp], [Email], [CreatedAt], [Address] FROM [Clients] WHERE [IsActive]=True ORDER BY [LastName], [FirstName]",
+            r => new ClientRecord { ClientId = Number(r, 0), FirstName = Text(r, 1), LastName = Text(r, 2), Phone = Text(r, 3), WhatsApp = Text(r, 4), Email = Text(r, 5), CreatedAt = Date(r, 6), Address = Text(r, 7) });
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -480,16 +622,16 @@ public sealed class AccessRepository
     }
 
     public ClientRecord? GetClient(int id) => Query(
-        "SELECT [ClientID], [FirstName], [LastName], [Phone], [WhatsApp], [Email], [CreatedAt] FROM [Clients] WHERE [ClientID]=? AND [IsActive]=True",
-        r => new ClientRecord { ClientId = Number(r, 0), FirstName = Text(r, 1), LastName = Text(r, 2), Phone = Text(r, 3), WhatsApp = Text(r, 4), Email = Text(r, 5), CreatedAt = Date(r, 6) }, id).FirstOrDefault();
+        "SELECT [ClientID], [FirstName], [LastName], [Phone], [WhatsApp], [Email], [CreatedAt], [Address] FROM [Clients] WHERE [ClientID]=? AND [IsActive]=True",
+        r => new ClientRecord { ClientId = Number(r, 0), FirstName = Text(r, 1), LastName = Text(r, 2), Phone = Text(r, 3), WhatsApp = Text(r, 4), Email = Text(r, 5), CreatedAt = Date(r, 6), Address = Text(r, 7) }, id).FirstOrDefault();
 
     public int CreateClient(ClientInput input, string pinHash)
     {
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
         var id = InsertAndGetId(connection, transaction,
-            "INSERT INTO [Clients] ([LastName], [FirstName], [Phone], [WhatsApp], [Email], [PortalPinHash], [CreatedAt], [IsActive]) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            input.LastName.Trim(), input.FirstName.Trim(), input.Phone.Trim(), input.WhatsApp?.Trim() ?? "", input.Email?.Trim() ?? "", pinHash, DateTime.Now, true);
+            "INSERT INTO [Clients] ([LastName], [FirstName], [Phone], [WhatsApp], [Email], [PortalPinHash], [CreatedAt], [IsActive], [Address]) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            input.LastName.Trim(), input.FirstName.Trim(), input.Phone.Trim(), input.WhatsApp?.Trim() ?? "", input.Email?.Trim() ?? "", pinHash, DateTime.Now, true, input.Address?.Trim() ?? "");
         AddEvent(connection, transaction, id, null, null, null, "client créé", "Fiche client créée.");
         transaction.Commit();
         return id;
@@ -499,7 +641,7 @@ public sealed class AccessRepository
     {
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
-        Execute(connection, transaction, "UPDATE [Clients] SET [LastName]=?, [FirstName]=?, [Phone]=?, [WhatsApp]=?, [Email]=? WHERE [ClientID]=?", input.LastName.Trim(), input.FirstName.Trim(), input.Phone.Trim(), input.WhatsApp?.Trim() ?? "", input.Email?.Trim() ?? "", id);
+        Execute(connection, transaction, "UPDATE [Clients] SET [LastName]=?, [FirstName]=?, [Phone]=?, [WhatsApp]=?, [Email]=?, [Address]=? WHERE [ClientID]=?", input.LastName.Trim(), input.FirstName.Trim(), input.Phone.Trim(), input.WhatsApp?.Trim() ?? "", input.Email?.Trim() ?? "", input.Address?.Trim() ?? "", id);
         AddEvent(connection, transaction, id, null, null, null, "client modifié", "Coordonnées mises à jour.");
         transaction.Commit();
     }
@@ -608,9 +750,23 @@ public sealed class AccessRepository
         return orders;
     }
 
-    public List<OrderSummary> SearchOrders(string? search)
+    public List<OrderSummary> SearchOrders(string? search, IEnumerable<string>? workflowStatuses = null, int? assignedUserId = null)
     {
         var rows = GetOrderSummaries();
+        var statuses = workflowStatuses?.Distinct(StringComparer.Ordinal).ToList();
+        if (statuses is { Count: > 0 })
+        {
+            var placeholders = string.Join(",", statuses.Select(_ => "?"));
+            var sql = $"SELECT DISTINCT [OrderID] FROM [OrderItems] WHERE [ItemStatus] IN ({placeholders})";
+            var args = statuses.Cast<object?>().ToList();
+            if (assignedUserId.HasValue)
+            {
+                sql += " AND ([AssignedToUserID] IS NULL OR [AssignedToUserID]=?)";
+                args.Add(assignedUserId.Value);
+            }
+            var visibleOrderIds = Query(sql, r => Number(r, 0), args.ToArray()).ToHashSet();
+            rows = rows.Where(order => visibleOrderIds.Contains(order.OrderId)).ToList();
+        }
         if (string.IsNullOrWhiteSpace(search)) return rows;
         var term = search.Trim();
         return rows.Where(o => o.TicketNo.Contains(term, StringComparison.OrdinalIgnoreCase) || o.ClientName.Contains(term, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -672,6 +828,38 @@ public sealed class AccessRepository
         return orderId;
     }
 
+    public List<StaffUserRow> GetActiveEmployeesByRole(string roleCode) => GetStaffUsers()
+        .Where(user => user.IsActive && user.RoleCodes.Contains(roleCode, StringComparer.Ordinal))
+        .OrderBy(user => user.DisplayName).ToList();
+
+    public static string? StageRoleForStatus(string status) => status switch
+    {
+        "déposé" or "à reprendre" => "washer",
+        "lavage" => "washer",
+        "en traitement" or "repassage" => "finisher",
+        "contrôle qualité" => "quality",
+        _ => null
+    };
+
+    public void AssignOrderItem(int orderId, int itemId, int employeeId, int actorId)
+    {
+        var employee = GetStaffUser(employeeId);
+        if (employee?.IsActive != true) throw new InvalidOperationException("Compte employé introuvable ou désactivé.");
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var item = QueryWithConnection(connection, transaction,
+            "SELECT o.[ClientID], i.[ItemStatus] FROM [Orders] AS o INNER JOIN [OrderItems] AS i ON o.[OrderID]=i.[OrderID] WHERE o.[OrderID]=? AND i.[ItemID]=?",
+            r => (ClientId: Number(r, 0), Status: Text(r, 1)), orderId, itemId).FirstOrDefault();
+        if (item.ClientId == 0) throw new InvalidOperationException("Article introuvable dans ce ticket.");
+        var expectedRole = StageRoleForStatus(item.Status);
+        if (expectedRole is null || !employee.RoleCodes.Contains(expectedRole, StringComparer.Ordinal))
+            throw new InvalidOperationException("L’employé choisi n’a pas le rôle nécessaire pour cette étape.");
+        Execute(connection, transaction, "UPDATE [OrderItems] SET [AssignedToUserID]=? WHERE [ItemID]=? AND [OrderID]=?", employeeId, itemId, orderId);
+        AddEvent(connection, transaction, item.ClientId, orderId, itemId, actorId,
+            "tâche attribuée", $"Article attribué à {employee.DisplayName} pour l’étape {item.Status}.");
+        transaction.Commit();
+    }
+
     private static List<T> QueryWithConnection<T>(DbConnection connection, DbTransaction? transaction, string sql, Func<DbDataReader, T> map, params object?[] args)
     {
         using var command = Command(connection, transaction, sql, args);
@@ -683,20 +871,20 @@ public sealed class AccessRepository
 
     public OrderDetailViewModel? GetOrderDetails(int id)
     {
-        var order = Query("SELECT o.[OrderID], o.[ClientID], o.[TicketNo], o.[CreatedAt], o.[OrderStatus], o.[Notes], c.[FirstName], c.[LastName], c.[Phone], c.[WhatsApp], c.[Email], c.[CreatedAt], o.[DiscountAmount] " +
+        var order = Query("SELECT o.[OrderID], o.[ClientID], o.[TicketNo], o.[CreatedAt], o.[OrderStatus], o.[Notes], c.[FirstName], c.[LastName], c.[Phone], c.[WhatsApp], c.[Email], c.[CreatedAt], o.[DiscountAmount], c.[Address] " +
                           "FROM [Orders] AS o INNER JOIN [Clients] AS c ON o.[ClientID]=c.[ClientID] WHERE o.[OrderID]=?",
             r => new OrderDetailViewModel
             {
                 Order = new OrderSummary { OrderId = Number(r, 0), ClientId = Number(r, 1), TicketNo = Text(r, 2), CreatedAt = Date(r, 3), OrderStatus = Text(r, 4), ClientName = (Text(r, 6) + " " + Text(r, 7)).Trim(), DiscountAmount = Money(r, 12) },
                 Notes = Text(r, 5),
-                Client = new ClientRecord { ClientId = Number(r, 1), FirstName = Text(r, 6), LastName = Text(r, 7), Phone = Text(r, 8), WhatsApp = Text(r, 9), Email = Text(r, 10), CreatedAt = Date(r, 11) }
+                Client = new ClientRecord { ClientId = Number(r, 1), FirstName = Text(r, 6), LastName = Text(r, 7), Phone = Text(r, 8), WhatsApp = Text(r, 9), Email = Text(r, 10), CreatedAt = Date(r, 11), Address = Text(r, 13) }
             }, id).FirstOrDefault();
         if (order is null) return null;
         (order.Order.Total, order.Order.Paid) = GetOrderAmounts(id);
         order.Order.ReadyItems = Query("SELECT COUNT(*) FROM [OrderItems] WHERE [OrderID]=? AND [ItemStatus]='prêt'", r => Number(r, 0), id).FirstOrDefault();
-        order.Items = Query("SELECT i.[ItemID], c.[CategoryName], i.[Description], i.[UnitPrice], i.[ExpressFee], i.[IsExpress], i.[ItemStatus], i.[DepositAt], i.[ExpectedPickupAt], i.[WithdrawnAt], i.[ConditionNotes], i.[StorageLocation] " +
-                            "FROM [OrderItems] AS i INNER JOIN [TariffCategories] AS c ON i.[CategoryID]=c.[CategoryID] WHERE i.[OrderID]=? ORDER BY i.[ItemID]",
-            r => new OrderItemViewModel { ItemId = Number(r, 0), CategoryName = Text(r, 1), Description = Text(r, 2), UnitPrice = Money(r, 3), ExpressFee = Money(r, 4), IsExpress = Flag(r, 5), ItemStatus = Text(r, 6), DepositAt = Date(r, 7), ExpectedPickupAt = MaybeDate(r, 8), WithdrawnAt = MaybeDate(r, 9), ConditionNotes = Text(r, 10), StorageLocation = Text(r, 11) }, id);
+        order.Items = Query("SELECT i.[ItemID], c.[CategoryName], i.[Description], i.[UnitPrice], i.[ExpressFee], i.[IsExpress], i.[ItemStatus], i.[DepositAt], i.[ExpectedPickupAt], i.[WithdrawnAt], i.[ConditionNotes], i.[StorageLocation], i.[AssignedToUserID], u.[DisplayName] " +
+                            "FROM ([OrderItems] AS i INNER JOIN [TariffCategories] AS c ON i.[CategoryID]=c.[CategoryID]) LEFT JOIN [AdminUsers] AS u ON i.[AssignedToUserID]=u.[AdminUserID] WHERE i.[OrderID]=? ORDER BY i.[ItemID]",
+            r => new OrderItemViewModel { ItemId = Number(r, 0), CategoryName = Text(r, 1), Description = Text(r, 2), UnitPrice = Money(r, 3), ExpressFee = Money(r, 4), IsExpress = Flag(r, 5), ItemStatus = Text(r, 6), DepositAt = Date(r, 7), ExpectedPickupAt = MaybeDate(r, 8), WithdrawnAt = MaybeDate(r, 9), ConditionNotes = Text(r, 10), StorageLocation = Text(r, 11), AssignedToUserId = r.IsDBNull(12) ? null : Number(r, 12), AssignedToName = Text(r, 13) }, id);
         order.Payments = Query("SELECT [PaymentID], [ReceiptNo], [Amount], [PaymentAt], [PaymentMethod], [Reference] FROM [Payments] WHERE [OrderID]=? ORDER BY [PaymentAt] DESC",
             r => new PaymentViewModel { PaymentId = Number(r, 0), ReceiptNo = Text(r, 1), Amount = Money(r, 2), PaymentAt = Date(r, 3), PaymentMethod = Text(r, 4), Reference = Text(r, 5) }, id);
         order.CashBalance = GetTillBalance();
@@ -705,16 +893,23 @@ public sealed class AccessRepository
 
     public void UpdateItem(int orderId, int itemId, UpdateItemInput input, int adminId)
     {
-        var allowed = new[] { "déposé", "en traitement", "prêt", "retiré" };
+        var allowed = new[] { "déposé", "en traitement", "lavage", "repassage", "contrôle qualité", "à reprendre", "prêt", "retiré" };
         if (!allowed.Contains(input.ItemStatus)) throw new InvalidOperationException("Statut non valide.");
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
         var clientId = Scalar<int>(connection, transaction, "SELECT [ClientID] FROM [Orders] WHERE [OrderID]=?", orderId);
         if (clientId == 0) throw new InvalidOperationException("Ticket introuvable.");
+        var previousStatus = Scalar<string>(connection, transaction, "SELECT [ItemStatus] FROM [OrderItems] WHERE [ItemID]=? AND [OrderID]=?", itemId, orderId);
+        if (string.IsNullOrWhiteSpace(previousStatus)) throw new InvalidOperationException("Article introuvable dans ce ticket.");
         DateTime? withdrawnAt = input.ItemStatus == "retiré" ? DateTime.Now : null;
+        var enteringWash = input.ItemStatus == "lavage" && (previousStatus is "déposé" or "à reprendre");
+        var assignment = QueryWithConnection(connection, transaction,
+            "SELECT [AssignedToUserID] FROM [OrderItems] WHERE [ItemID]=? AND [OrderID]=?",
+            r => r.IsDBNull(0) ? (int?)null : Number(r, 0), itemId, orderId).FirstOrDefault();
+        var assignedTo = enteringWash ? assignment : null;
         var updated = Execute(connection, transaction,
-            "UPDATE [OrderItems] SET [ItemStatus]=?, [ExpectedPickupAt]=?, [WithdrawnAt]=?, [StorageLocation]=? WHERE [ItemID]=? AND [OrderID]=?",
-            input.ItemStatus, input.ExpectedPickupAt, withdrawnAt, input.StorageLocation?.Trim() ?? "", itemId, orderId);
+            "UPDATE [OrderItems] SET [ItemStatus]=?, [ExpectedPickupAt]=?, [WithdrawnAt]=?, [StorageLocation]=?, [AssignedToUserID]=? WHERE [ItemID]=? AND [OrderID]=?",
+            input.ItemStatus, input.ExpectedPickupAt, withdrawnAt, input.StorageLocation?.Trim() ?? "", assignedTo, itemId, orderId);
         if (updated != 1) throw new InvalidOperationException("Article introuvable dans ce ticket.");
         AddEvent(connection, transaction, clientId, orderId, itemId, adminId, "statut modifié", $"Article marqué « {input.ItemStatus} ».");
         var remaining = Scalar<int>(connection, transaction, "SELECT COUNT(*) FROM [OrderItems] WHERE [OrderID]=? AND [ItemStatus]<>'retiré'", orderId);
@@ -724,7 +919,7 @@ public sealed class AccessRepository
 
     public void UpdateAllOrderItemsStatus(int orderId, string status, string? storageLocation, int adminId)
     {
-        var allowed = new[] { "déposé", "en traitement", "prêt", "retiré" };
+        var allowed = new[] { "déposé", "en traitement", "lavage", "repassage", "contrôle qualité", "à reprendre", "prêt", "retiré" };
         if (!allowed.Contains(status)) throw new InvalidOperationException("Statut non valide.");
         using var connection = Open();
         using var transaction = connection.BeginTransaction();
@@ -734,13 +929,13 @@ public sealed class AccessRepository
         if (!string.IsNullOrWhiteSpace(storageLocation))
         {
             Execute(connection, transaction,
-                "UPDATE [OrderItems] SET [ItemStatus]=?, [WithdrawnAt]=?, [StorageLocation]=? WHERE [OrderID]=? AND [ItemStatus]<>'retiré'",
+                "UPDATE [OrderItems] SET [ItemStatus]=?, [WithdrawnAt]=?, [StorageLocation]=?, [AssignedToUserID]=NULL WHERE [OrderID]=? AND [ItemStatus]<>'retiré'",
                 status, withdrawnAt, storageLocation.Trim(), orderId);
         }
         else
         {
             Execute(connection, transaction,
-                "UPDATE [OrderItems] SET [ItemStatus]=?, [WithdrawnAt]=? WHERE [OrderID]=? AND [ItemStatus]<>'retiré'",
+                "UPDATE [OrderItems] SET [ItemStatus]=?, [WithdrawnAt]=?, [AssignedToUserID]=NULL WHERE [OrderID]=? AND [ItemStatus]<>'retiré'",
                 status, withdrawnAt, orderId);
         }
         AddEvent(connection, transaction, clientId, orderId, null, adminId, "lot modifié", $"Tous les articles restants marqués « {status} ».");
@@ -1104,6 +1299,166 @@ public sealed class AccessRepository
         Execute(connection, transaction,
             "INSERT INTO [InventoryTransactions] ([InventoryItemID], [Direction], [Quantity], [UnitCost], [Reason], [AdminUserID], [CreatedAt]) VALUES (?, ?, ?, ?, ?, ?, ?)",
             itemId, input.Direction, quantity, input.UnitCost ?? item.UnitCost, input.Reason.Trim(), adminId, DateTime.Now);
+        transaction.Commit();
+    }
+
+    public List<DeliveryMission> GetDeliveryMissions(int userId, bool canSeeAll)
+    {
+        var scope = canSeeAll ? "" : "AND m.[AssignedToUserID]=? ";
+        object?[] args = canSeeAll ? [] : [userId];
+        return Query(
+            "SELECT m.[MissionID], m.[ClientID], m.[OrderID], o.[TicketNo], c.[FirstName], c.[LastName], c.[Phone], m.[Direction], m.[Status], m.[AssignedToUserID], u.[DisplayName], m.[Address], m.[ScheduledAt], m.[Notes], m.[Proof], m.[CreatedAt], m.[CompletedAt] " +
+            "FROM ((([DeliveryMissions] AS m INNER JOIN [Clients] AS c ON m.[ClientID]=c.[ClientID]) LEFT JOIN [Orders] AS o ON m.[OrderID]=o.[OrderID]) LEFT JOIN [AdminUsers] AS u ON m.[AssignedToUserID]=u.[AdminUserID]) " +
+            "WHERE m.[Status] NOT IN ('collectée', 'livrée', 'annulée') " + scope + "ORDER BY m.[ScheduledAt], m.[CreatedAt]",
+            r => new DeliveryMission
+            {
+                MissionId = Number(r, 0), ClientId = Number(r, 1), OrderId = r.IsDBNull(2) ? null : Number(r, 2),
+                TicketNo = Text(r, 3), ClientName = (Text(r, 4) + " " + Text(r, 5)).Trim(), Phone = Text(r, 6),
+                Direction = Text(r, 7), Status = Text(r, 8), AssignedToUserId = r.IsDBNull(9) ? null : Number(r, 9),
+                AssignedToName = Text(r, 10), Address = Text(r, 11), ScheduledAt = MaybeDate(r, 12), Notes = Text(r, 13),
+                Proof = Text(r, 14), CreatedAt = Date(r, 15), CompletedAt = MaybeDate(r, 16)
+            }, args);
+    }
+
+    public DeliveryMission? GetDeliveryMission(int id) => Query(
+        "SELECT [MissionID], [ClientID], [OrderID], [Direction], [Status], [AssignedToUserID], [Address], [ScheduledAt], [Notes], [Proof], [CreatedAt], [CompletedAt] FROM [DeliveryMissions] WHERE [MissionID]=?",
+        r => new DeliveryMission
+        {
+            MissionId = Number(r, 0), ClientId = Number(r, 1), OrderId = r.IsDBNull(2) ? null : Number(r, 2),
+            Direction = Text(r, 3), Status = Text(r, 4), AssignedToUserId = r.IsDBNull(5) ? null : Number(r, 5),
+            Address = Text(r, 6), ScheduledAt = MaybeDate(r, 7), Notes = Text(r, 8), Proof = Text(r, 9),
+            CreatedAt = Date(r, 10), CompletedAt = MaybeDate(r, 11)
+        }, id).FirstOrDefault();
+
+    public int CreateDeliveryMission(DeliveryMissionInput input, int actorId)
+    {
+        if (input.Direction is not ("collecte" or "livraison")) throw new InvalidOperationException("Choisissez une collecte ou une livraison.");
+        if (input.Direction == "livraison" && input.OrderId is null) throw new InvalidOperationException("Une livraison doit être liée à un ticket.");
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var client = QueryWithConnection(connection, transaction,
+            "SELECT [FirstName], [LastName], [Phone] FROM [Clients] WHERE [ClientID]=? AND [IsActive]=True",
+            r => (Name: (Text(r, 0) + " " + Text(r, 1)).Trim(), Phone: Text(r, 2)), input.ClientId).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(client.Name)) throw new InvalidOperationException("Client introuvable.");
+        if (input.OrderId is > 0)
+        {
+            var orderClientId = Scalar<int>(connection, transaction, "SELECT [ClientID] FROM [Orders] WHERE [OrderID]=?", input.OrderId.Value);
+            if (orderClientId != input.ClientId) throw new InvalidOperationException("Le ticket choisi n’appartient pas à ce client.");
+            if (input.Direction == "livraison")
+            {
+                var ready = Scalar<int>(connection, transaction, "SELECT COUNT(*) FROM [OrderItems] WHERE [OrderID]=? AND [ItemStatus]='prêt'", input.OrderId.Value);
+                if (ready == 0) throw new InvalidOperationException("La livraison peut être créée lorsque des articles du ticket sont prêts.");
+            }
+        }
+        var id = InsertAndGetId(connection, transaction,
+            "INSERT INTO [DeliveryMissions] ([ClientID], [OrderID], [Direction], [Status], [Address], [ScheduledAt], [Notes], [CreatedBy], [CreatedAt]) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            input.ClientId, input.OrderId, input.Direction, "à affecter", input.Address.Trim(), input.ScheduledAt, input.Notes?.Trim() ?? "", actorId, DateTime.Now);
+        AddEvent(connection, transaction, input.ClientId, input.OrderId, null, actorId,
+            "mission créée", $"Mission de {input.Direction} créée — {input.Address.Trim()}.");
+        transaction.Commit();
+        return id;
+    }
+
+    public void AssignDeliveryMission(int missionId, int employeeId, int actorId)
+    {
+        if (!GetAdminRoles(employeeId).Contains("delivery", StringComparer.Ordinal) || GetStaffUser(employeeId)?.IsActive != true)
+            throw new InvalidOperationException("Choisissez un compte livreur actif.");
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var mission = QueryWithConnection(connection, transaction,
+            "SELECT [ClientID], [OrderID], [Direction], [Status] FROM [DeliveryMissions] WHERE [MissionID]=?",
+            r => (ClientId: Number(r, 0), OrderId: r.IsDBNull(1) ? (int?)null : Number(r, 1), Direction: Text(r, 2), Status: Text(r, 3)), missionId).FirstOrDefault();
+        if (mission.ClientId == 0) throw new InvalidOperationException("Mission introuvable.");
+        if (mission.Status is "collectée" or "livrée" or "annulée") throw new InvalidOperationException("Cette mission est déjà terminée.");
+        Execute(connection, transaction, "UPDATE [DeliveryMissions] SET [AssignedToUserID]=?, [Status]='attribuée' WHERE [MissionID]=?", employeeId, missionId);
+        var employeeName = Scalar<string>(connection, transaction, "SELECT [DisplayName] FROM [AdminUsers] WHERE [AdminUserID]=?", employeeId);
+        AddEvent(connection, transaction, mission.ClientId, mission.OrderId, null, actorId, "mission attribuée", $"Mission de {mission.Direction} attribuée à {employeeName}.");
+        transaction.Commit();
+    }
+
+    public void UpdateDeliveryMission(int missionId, DeliveryUpdateInput input, int actorId, bool canManage)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var mission = QueryWithConnection(connection, transaction,
+            "SELECT [ClientID], [OrderID], [Direction], [Status], [AssignedToUserID] FROM [DeliveryMissions] WHERE [MissionID]=?",
+            r => (ClientId: Number(r, 0), OrderId: r.IsDBNull(1) ? (int?)null : Number(r, 1), Direction: Text(r, 2), Status: Text(r, 3), AssignedTo: r.IsDBNull(4) ? (int?)null : Number(r, 4)), missionId).FirstOrDefault();
+        if (mission.ClientId == 0) throw new InvalidOperationException("Mission introuvable.");
+        if (!canManage && mission.AssignedTo != actorId) throw new InvalidOperationException("Cette mission ne vous est pas attribuée.");
+        var terminal = mission.Direction == "collecte" ? "collectée" : "livrée";
+        var allowed = input.Status is "en route" or "échec" || input.Status == terminal;
+        if (!allowed || mission.Status is "collectée" or "livrée" or "annulée") throw new InvalidOperationException("Cette mise à jour de mission n’est pas autorisée.");
+        DateTime? completedAt = input.Status == terminal ? DateTime.Now : null;
+        Execute(connection, transaction,
+            "UPDATE [DeliveryMissions] SET [Status]=?, [Notes]=?, [Proof]=?, [CompletedAt]=? WHERE [MissionID]=?",
+            input.Status, input.Notes?.Trim() ?? "", input.Proof?.Trim() ?? "", completedAt, missionId);
+        if (mission.Direction == "livraison" && input.Status == terminal && mission.OrderId.HasValue)
+        {
+            Execute(connection, transaction,
+                "UPDATE [OrderItems] SET [ItemStatus]='retiré', [WithdrawnAt]=?, [AssignedToUserID]=NULL WHERE [OrderID]=? AND [ItemStatus]='prêt'",
+                DateTime.Now, mission.OrderId.Value);
+            var remaining = Scalar<int>(connection, transaction, "SELECT COUNT(*) FROM [OrderItems] WHERE [OrderID]=? AND [ItemStatus]<>'retiré'", mission.OrderId.Value);
+            Execute(connection, transaction, "UPDATE [Orders] SET [OrderStatus]=? WHERE [OrderID]=?", remaining == 0 ? "terminée" : "ouverte", mission.OrderId.Value);
+        }
+        AddEvent(connection, transaction, mission.ClientId, mission.OrderId, null, actorId,
+            "mission mise à jour", $"Mission de {mission.Direction} : {input.Status}. {input.Notes?.Trim()} {input.Proof?.Trim()}".Trim());
+        transaction.Commit();
+    }
+
+    public int CreateOrderIncident(OrderIncidentInput input, int actorId)
+    {
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var clientId = Scalar<int>(connection, transaction, "SELECT [ClientID] FROM [Orders] WHERE [OrderID]=?", input.OrderId);
+        if (clientId == 0) throw new InvalidOperationException("Ticket introuvable.");
+        if (input.ItemId.HasValue)
+        {
+            var itemExists = Scalar<int>(connection, transaction,
+                "SELECT COUNT(*) FROM [OrderItems] WHERE [ItemID]=? AND [OrderID]=?", input.ItemId.Value, input.OrderId);
+            if (itemExists == 0) throw new InvalidOperationException("L’article choisi ne fait pas partie de ce ticket.");
+        }
+        var incidentId = InsertAndGetId(connection, transaction,
+            "INSERT INTO [OrderIncidents] ([OrderID], [ItemID], [ReportedByUserID], [Category], [Description], [Status], [CreatedAt]) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            input.OrderId, input.ItemId, actorId, input.Category.Trim(), input.Description.Trim(), "nouveau", DateTime.Now);
+        AddEvent(connection, transaction, clientId, input.OrderId, input.ItemId, actorId,
+            "incident signalé", $"{input.Category.Trim()} — {input.Description.Trim()}");
+        transaction.Commit();
+        return incidentId;
+    }
+
+    public List<OrderIncident> GetOrderIncidents(int userId, bool canManage)
+    {
+        var scope = canManage ? "" : "WHERE i.[ReportedByUserID]=? ";
+        object?[] args = canManage ? [] : [userId];
+        return Query(
+            "SELECT i.[IncidentID], i.[OrderID], i.[ItemID], o.[TicketNo], c.[FirstName], c.[LastName], u.[DisplayName], i.[Category], i.[Description], i.[Status], i.[Resolution], i.[CreatedAt], i.[ClosedAt] " +
+            "FROM ((([OrderIncidents] AS i INNER JOIN [Orders] AS o ON i.[OrderID]=o.[OrderID]) INNER JOIN [Clients] AS c ON o.[ClientID]=c.[ClientID]) LEFT JOIN [AdminUsers] AS u ON i.[ReportedByUserID]=u.[AdminUserID]) " +
+            scope + "ORDER BY i.[CreatedAt] DESC",
+            r => new OrderIncident
+            {
+                IncidentId = Number(r, 0), OrderId = Number(r, 1), ItemId = r.IsDBNull(2) ? null : Number(r, 2),
+                TicketNo = Text(r, 3), ClientName = (Text(r, 4) + " " + Text(r, 5)).Trim(), ReporterName = Text(r, 6),
+                Category = Text(r, 7), Description = Text(r, 8), Status = Text(r, 9), Resolution = Text(r, 10),
+                CreatedAt = Date(r, 11), ClosedAt = MaybeDate(r, 12)
+            }, args);
+    }
+
+    public void UpdateOrderIncident(int incidentId, OrderIncidentUpdateInput input, int actorId)
+    {
+        if (input.Status is not ("nouveau" or "en cours" or "résolu" or "annulé"))
+            throw new InvalidOperationException("Choisissez un statut de suivi valide.");
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction();
+        var incident = QueryWithConnection(connection, transaction,
+            "SELECT o.[ClientID], i.[OrderID], i.[ItemID] FROM [OrderIncidents] AS i INNER JOIN [Orders] AS o ON i.[OrderID]=o.[OrderID] WHERE i.[IncidentID]=?",
+            r => (ClientId: Number(r, 0), OrderId: Number(r, 1), ItemId: r.IsDBNull(2) ? (int?)null : Number(r, 2)), incidentId).FirstOrDefault();
+        if (incident.ClientId == 0) throw new InvalidOperationException("Incident introuvable.");
+        DateTime? closedAt = input.Status is "résolu" or "annulé" ? DateTime.Now : null;
+        Execute(connection, transaction,
+            "UPDATE [OrderIncidents] SET [Status]=?, [Resolution]=?, [ResolvedByUserID]=?, [ClosedAt]=? WHERE [IncidentID]=?",
+            input.Status, input.Resolution?.Trim() ?? "", actorId, closedAt, incidentId);
+        AddEvent(connection, transaction, incident.ClientId, incident.OrderId, incident.ItemId, actorId,
+            "incident traité", $"{input.Status} — {input.Resolution?.Trim()}".Trim());
         transaction.Commit();
     }
 
