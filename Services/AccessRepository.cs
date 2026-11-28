@@ -657,7 +657,7 @@ public sealed class AccessRepository
             var payAmount = Math.Min(total, Math.Round(input.InitialPaymentAmount, 0, MidpointRounding.AwayFromZero));
             if (payAmount > 0)
             {
-                var method = string.IsNullOrWhiteSpace(input.InitialPaymentMethod) ? "Espèces" : input.InitialPaymentMethod.Trim();
+                var method = NormalizePaymentMethod(input.InitialPaymentMethod);
                 var receiptNo = Receipt();
                 var paymentId = InsertAndGetId(connection, transaction,
                     "INSERT INTO [Payments] ([OrderID], [ClientID], [Amount], [PaymentAt], [PaymentMethod], [Reference], [ReceiptNo], [RecordedBy]) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -751,8 +751,9 @@ public sealed class AccessRepository
 
     public int RecordPayment(int orderId, PaymentInput input, int adminId)
     {
+        var method = NormalizePaymentMethod(input.PaymentMethod);
         using var connection = Open();
-        using var transaction = connection.BeginTransaction();
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
         var clientId = Scalar<int>(connection, transaction, "SELECT [ClientID] FROM [Orders] WHERE [OrderID]=?", orderId);
         if (clientId == 0) throw new InvalidOperationException("Ticket introuvable.");
         var (total, paid) = GetOrderAmounts(connection, transaction, orderId);
@@ -761,10 +762,10 @@ public sealed class AccessRepository
         var receiptNo = Receipt();
         var paymentId = InsertAndGetId(connection, transaction,
             "INSERT INTO [Payments] ([OrderID], [ClientID], [Amount], [PaymentAt], [PaymentMethod], [Reference], [ReceiptNo], [RecordedBy]) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            orderId, clientId, amount, DateTime.Now, input.PaymentMethod, input.Reference?.Trim() ?? "", receiptNo, adminId);
-        if (input.PaymentMethod == "Espèces")
+            orderId, clientId, amount, DateTime.Now, method, input.Reference?.Trim() ?? "", receiptNo, adminId);
+        if (method == "Espèces")
             Execute(connection, transaction, "INSERT INTO [CashMovements] ([PaymentID], [Direction], [Amount], [Description], [CreatedAt], [RecordedBy]) VALUES (?, ?, ?, ?, ?, ?)", paymentId, "entrée", amount, $"Règlement {receiptNo}", DateTime.Now, adminId);
-        AddEvent(connection, transaction, clientId, orderId, null, adminId, "paiement reçu", $"{amount:N0} FCFA — {input.PaymentMethod}.");
+        AddEvent(connection, transaction, clientId, orderId, null, adminId, "paiement reçu", $"{amount:N0} FCFA — {method}.");
         transaction.Commit();
         return paymentId;
     }
@@ -803,6 +804,16 @@ public sealed class AccessRepository
         var paid = Scalar<decimal>(connection, transaction, "SELECT SUM([Amount]) FROM [Payments] WHERE [OrderID]=?", orderId);
         return (Math.Max(0, itemRows.Sum() - discount), paid);
     }
+
+    private static string NormalizePaymentMethod(string? method) => method?.Trim() switch
+    {
+        "Espèces" => "Espèces",
+        "MTN Money" => "MTN Money",
+        "Orange Money" => "Orange Money",
+        "Virement" => "Virement",
+        "Carte" => "Carte",
+        _ => throw new InvalidOperationException("Mode de paiement non valide.")
+    };
 
     public DailyClosingReport GetDailyClosingReport(DateTime date)
     {

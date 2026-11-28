@@ -74,5 +74,5 @@ public sealed class ClientsController(AccessRepository repository) : Controller
     }
 
     private int CurrentUserId() => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
-    private static string NewPin() => RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+    private static string NewPin() => RandomNumberGenerator.GetInt32(10_000_000, 100_000_000).ToString(System.Globalization.CultureInfo.InvariantCulture);
 }

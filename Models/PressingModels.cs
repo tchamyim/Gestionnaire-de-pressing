@@ -346,7 +346,7 @@ public sealed class CashMovementInput
 public sealed class PaymentInput
 {
     [Range(1, 100000000)] public decimal Amount { get; set; }
-    [Required] public string PaymentMethod { get; set; } = "Espèces";
+    [Required, StringLength(30)] public string PaymentMethod { get; set; } = "Espèces";
     [StringLength(100)] public string? Reference { get; set; }
 }
 
@@ -392,5 +392,5 @@ public sealed class SetupAdminInput
 public sealed class ChangePinInput
 {
     [Required] public string CurrentPin { get; set; } = "";
-    [Required, MinLength(6), StringLength(12)] public string NewPin { get; set; } = "";
+    [Required, MinLength(8), StringLength(12)] public string NewPin { get; set; } = "";
 }

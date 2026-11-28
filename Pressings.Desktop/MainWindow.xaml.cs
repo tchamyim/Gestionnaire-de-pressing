@@ -194,6 +194,7 @@ public partial class MainWindow : Window
         }
 
         start.Environment["DatabasePath"] = databasePath;
+        start.Environment["Cookies__Secure"] = "false";
         string? antiforgeryCookieName = null;
         if (Uri.TryCreate(_localUrl, UriKind.Absolute, out var localUri))
         {

@@ -9,6 +9,8 @@ Application Windows C# pour gérer un pressing. Le programme de bureau ouvre une
 3. Sur l’écran de garde, choisir **Espace gérant** ou **Espace client**.
 4. À la première ouverture de l’espace gérant, créer le compte gestionnaire avec l’adresse préremplie et un mot de passe privé (6 caractères minimum en local, 12 en ligne).
 
+Les écrans de connexion limitent les requêtes à 20 tentatives par minute par instance. De nouveaux clients reçoivent un code à 8 chiffres ; les codes existants restent valides jusqu’à leur changement.
+
 L’application crée les tables et la grille de démarrage dans `Gestion pressing.accdb`. Le lancement depuis le projet utilise le fichier situé dans le dossier du projet. La version publiée utilise `%LOCALAPPDATA%\FreshCare\Gestion pressing.accdb`.
 
 ## Fonctions incluses
@@ -37,11 +39,13 @@ Le total de caisse correspond aux espèces encaissées plus les entrées de cais
 3. Sur un autre appareil du même réseau Wi-Fi/Ethernet, ouvrir `http://ADRESSE-IP-DU-PC:5085`. Pour trouver l’adresse IPv4 du PC serveur, exécuter `ipconfig` et repérer l’adresse de la carte réseau active.
 4. Si Windows bloque la connexion, créer une règle entrante TCP pour le port `5085`, limitée au profil **Privé** du pare-feu Windows.
 
+Si le port `5085` est déjà utilisé, choisir un autre port dans PowerShell avant de démarrer le site, par exemple `$env:PORT='5185'`, puis lancer `.\run-site.bat`. Ouvrir alors `http://localhost:5185`.
+
 La base Access reste sur le PC serveur ; les appareils utilisent le site et ne doivent pas ouvrir ni partager directement le fichier `.accdb`. Fermer l’application bureau avant de lancer le site pour éviter deux moteurs écrivant simultanément dans la même base. Cette configuration est réservée au réseau local de confiance : ne pas exposer le port `5085` sur Internet. Pour un accès depuis l’extérieur, utiliser un hébergement HTTPS avec MySQL/MariaDB, comme décrit ci-dessous.
 
 ## Base MySQL et mise en ligne
 
-Le lancement Windows garde Access par défaut. Le moteur sait aussi utiliser MySQL/MariaDB : configurez `DatabaseProvider=MySql` et `MYSQL_URL` (ou `ConnectionStrings__PressingDb`) dans l’environnement **du serveur hébergé**. Au premier démarrage, il crée les tables et la grille tarifaire. `MYSQL_URL` accepte une URL `mysql://...` ou une chaîne de connexion .NET. `Cookies__Secure=true` force les cookies de connexion à utiliser HTTPS.
+Le lancement Windows garde Access par défaut. Le moteur sait aussi utiliser MySQL/MariaDB : configurez `DatabaseProvider=MySql` et `MYSQL_URL` (ou `ConnectionStrings__PressingDb`) dans l’environnement **du serveur hébergé**. Au premier démarrage, il crée les tables et la grille tarifaire. `MYSQL_URL` accepte une URL `mysql://...` ou une chaîne de connexion .NET. En production, les cookies de connexion sont sécurisés par défaut ; `Cookies__Secure=true` permet de l’imposer explicitement. Les lancements locaux en HTTP désactivent ce réglage.
 
 Le serveur MariaDB de XAMPP détecté sur ce PC est local : il n’est joignable que depuis cette machine ou le réseau autorisé, ce n’est pas une base Internet. Ne l’exposez pas directement sur le port 3306. Pour partager les dossiers, hébergez le moteur ASP.NET et MySQL chez un fournisseur, définissez les variables secrètes sur le serveur, puis mettez l’adresse HTTPS du moteur dans `Pressings.Desktop/appsettings.json` (`OnlineUrl`). La fenêtre Windows reste l’interface utilisée ; le mot de passe MySQL reste côté serveur. Le fichier `Dockerfile` prépare le moteur web pour un hébergeur Linux. Aucun compte d’hébergement ni domaine distant n’est encore configuré.
 

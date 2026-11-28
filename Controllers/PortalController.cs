@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Pressings.Models;
 using Pressings.Services;
 
@@ -22,7 +23,7 @@ public sealed class PortalController(AccessRepository repository, IAntiforgery a
         return View(new PortalLoginInput());
     }
 
-    [AllowAnonymous, HttpPost]
+    [AllowAnonymous, HttpPost, EnableRateLimiting("login")]
     public async Task<IActionResult> Login(PortalLoginInput input)
     {
         if (User.Identity?.IsAuthenticated == true)
@@ -109,7 +110,7 @@ public sealed class PortalController(AccessRepository repository, IAntiforgery a
     [Authorize(Roles = "client"), HttpPost, ValidateAntiForgeryToken]
     public IActionResult ChangePin(ChangePinInput input)
     {
-        if (!ModelState.IsValid) { TempData["Error"] = "Le code doit contenir au moins 6 caractères."; return RedirectToAction(nameof(Index)); }
+        if (!ModelState.IsValid) { TempData["Error"] = "Le nouveau code doit contenir au moins 8 caractères."; return RedirectToAction(nameof(Index)); }
         var id = CurrentClientId();
         var client = repository.GetClient(id);
         var account = repository.FindPortalAccountByPhone(client?.Phone ?? "");

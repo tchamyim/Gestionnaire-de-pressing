@@ -1,7 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "PORT=5085"
+if not defined PORT set "PORT=5085"
+set "Cookies__Secure=false"
 
 echo Building Fresh ^& Care website...
 dotnet build "%~dp0Pressings.csproj"

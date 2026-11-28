@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Pressings.Models;
 using Pressings.Services;
 
@@ -21,7 +22,7 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
         return View(new SetupAdminInput { Email = configuration["InitialAdminEmail"] ?? "" });
     }
 
-    [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
+    [AllowAnonymous, HttpPost, ValidateAntiForgeryToken, EnableRateLimiting("login")]
     public async Task<IActionResult> Setup(SetupAdminInput input)
     {
         if (repository.AdminCount() > 0) return RedirectToAction(nameof(Login));
@@ -48,7 +49,7 @@ public sealed class AccountController(AccessRepository repository, IConfiguratio
             : View(new AdminLoginInput { Email = configuration["InitialAdminEmail"] ?? "" });
     }
 
-    [AllowAnonymous, HttpPost]
+    [AllowAnonymous, HttpPost, EnableRateLimiting("login")]
     public async Task<IActionResult> Login(AdminLoginInput input)
     {
         // A double submission may arrive after the first request has already signed the
